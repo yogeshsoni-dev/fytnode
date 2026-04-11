@@ -3,6 +3,7 @@ import { AppProvider } from './context/AppContext';
 import './styles/globals.css';
 
 import Login from './components/auth/Login';
+import Signup from './components/auth/Signup';
 import AppLayout from './components/layout/AppLayout';
 import Dashboard from './components/dashboard/Dashboard';
 import Members from './components/members/Members';
@@ -17,6 +18,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/" element={<AppLayout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />

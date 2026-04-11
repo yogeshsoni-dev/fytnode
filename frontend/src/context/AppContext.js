@@ -1,80 +1,121 @@
-import { createContext, useContext, useReducer } from 'react';
-import {
-  USERS, MEMBERS, TRAINERS, SUBSCRIPTION_PLANS, SUBSCRIPTIONS, ATTENDANCE, NOTIFICATIONS
-} from '../data/mockData';
+import { createContext, useCallback, useContext, useEffect, useReducer } from 'react';
+import { authApi } from '../api/auth.api';
+import { notificationsApi } from '../api/notifications.api';
 
 const AppContext = createContext();
 
 const initialState = {
   currentUser: null,
-  members: MEMBERS,
-  trainers: TRAINERS,
-  subscriptionPlans: SUBSCRIPTION_PLANS,
-  subscriptions: SUBSCRIPTIONS,
-  attendance: ATTENDANCE,
-  notifications: NOTIFICATIONS,
+  authLoading: true,
+  unreadCount: 0,
 };
 
 function reducer(state, action) {
   switch (action.type) {
-    case 'LOGIN':
-      return { ...state, currentUser: action.payload };
+    case 'SET_USER':
+      return { ...state, currentUser: action.payload, authLoading: false };
+    case 'AUTH_DONE':
+      return { ...state, authLoading: false };
     case 'LOGOUT':
-      return { ...state, currentUser: null };
-
-    case 'ADD_MEMBER':
-      return { ...state, members: [...state.members, action.payload] };
-    case 'UPDATE_MEMBER':
-      return { ...state, members: state.members.map(m => m.id === action.payload.id ? action.payload : m) };
-    case 'DELETE_MEMBER':
-      return { ...state, members: state.members.filter(m => m.id !== action.payload) };
-
-    case 'ADD_TRAINER':
-      return { ...state, trainers: [...state.trainers, action.payload] };
-    case 'UPDATE_TRAINER':
-      return { ...state, trainers: state.trainers.map(t => t.id === action.payload.id ? action.payload : t) };
-    case 'DELETE_TRAINER':
-      return { ...state, trainers: state.trainers.filter(t => t.id !== action.payload) };
-
-    case 'ADD_SUBSCRIPTION':
-      return { ...state, subscriptions: [...state.subscriptions, action.payload] };
-    case 'UPDATE_SUBSCRIPTION':
-      return { ...state, subscriptions: state.subscriptions.map(s => s.id === action.payload.id ? action.payload : s) };
-
-    case 'CHECK_IN':
-      return { ...state, attendance: [...state.attendance, action.payload] };
-
-    case 'ADD_NOTIFICATION':
-      return { ...state, notifications: [action.payload, ...state.notifications] };
-    case 'MARK_NOTIFICATION_READ':
-      return { ...state, notifications: state.notifications.map(n => n.id === action.payload ? { ...n, read: true } : n) };
-    case 'MARK_ALL_READ':
-      return { ...state, notifications: state.notifications.map(n => ({ ...n, read: true })) };
-
+      return { ...state, currentUser: null, unreadCount: 0, authLoading: false };
+    case 'SET_UNREAD':
+      return { ...state, unreadCount: action.payload };
     default:
       return state;
   }
 }
 
+function clearAuthStorage() {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('currentUser');
+}
+
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const login = (email, password) => {
-    const user = USERS.find(u => u.email === email && u.password === password);
-    if (user) {
-      const { password: _, ...safeUser } = user;
-      dispatch({ type: 'LOGIN', payload: safeUser });
-      return { success: true, user: safeUser };
+  const refreshUnread = useCallback(async () => {
+    if (!state.currentUser) return;
+    try {
+      const res = await notificationsApi.getAll({ limit: 1 });
+      dispatch({ type: 'SET_UNREAD', payload: res.unreadCount });
+    } catch {
+      // Ignore background unread refresh failures.
     }
-    return { success: false, error: 'Invalid email or password' };
-  };
+  }, [state.currentUser]);
 
-  const logout = () => dispatch({ type: 'LOGOUT' });
+  useEffect(() => {
+    const restore = async () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        dispatch({ type: 'AUTH_DONE' });
+        return;
+      }
 
-  const unreadCount = state.notifications.filter(n => !n.read).length;
+      try {
+        const user = await authApi.me();
+        dispatch({ type: 'SET_USER', payload: user });
+      } catch {
+        clearAuthStorage();
+        dispatch({ type: 'AUTH_DONE' });
+      }
+    };
+
+    restore();
+  }, []);
+
+  useEffect(() => {
+    refreshUnread();
+  }, [refreshUnread]);
+
+  const login = useCallback(async (email, password) => {
+    const data = await authApi.login(email, password);
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+
+    try {
+      const user = await authApi.me();
+      dispatch({ type: 'SET_USER', payload: user });
+      return { ...data, user };
+    } catch (error) {
+      clearAuthStorage();
+      dispatch({ type: 'LOGOUT' });
+      throw error;
+    }
+  }, []);
+
+  const signup = useCallback(async (payload) => {
+    const data = await authApi.signup(payload);
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+
+    try {
+      const user = await authApi.me();
+      dispatch({ type: 'SET_USER', payload: user });
+      return { ...data, user };
+    } catch (error) {
+      clearAuthStorage();
+      dispatch({ type: 'LOGOUT' });
+      throw error;
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    const refreshToken = localStorage.getItem('refreshToken');
+    try {
+      await authApi.logout(refreshToken);
+    } catch {
+      // Ignore logout network failures and clear local session anyway.
+    }
+
+    clearAuthStorage();
+    dispatch({ type: 'LOGOUT' });
+  }, []);
 
   return (
-    <AppContext.Provider value={{ state, dispatch, login, logout, unreadCount }}>
+    <AppContext.Provider
+      value={{ state, login, signup, logout, unreadCount: state.unreadCount, refreshUnread }}
+    >
       {children}
     </AppContext.Provider>
   );

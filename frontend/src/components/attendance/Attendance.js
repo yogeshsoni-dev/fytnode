@@ -1,240 +1,585 @@
-import { useState, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
+  CalendarCheck,
+  Clock,
+  Plus,
+  Search,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { Plus, Search, CalendarCheck, Clock, Users, TrendingUp } from 'lucide-react';
+import { attendanceApi } from '../../api/attendance.api';
+import { membersApi } from '../../api/members.api';
+import { calcDuration, getErrorMessage } from '../../utils/formatters';
+import ErrorState from '../shared/ErrorState';
 import Modal from '../shared/Modal';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { ATTENDANCE_WEEKLY } from '../../data/mockData';
+import Spinner from '../shared/Spinner';
 
 const AVATAR_BG = ['#e11d48', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#06b6d4'];
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function Attendance() {
-  const { state, dispatch } = useApp();
-  const { attendance, members } = state;
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
-  const [search, setSearch]   = useState('');
-  const [date, setDate]       = useState('');
-  const [showModal, setModal] = useState(false);
-  const [tab, setTab]         = useState('records');
-  const [formError, setFErr]  = useState('');
-  const [form, setForm]       = useState({
-    memberId: '', checkIn: '', checkOut: '',
-    date: new Date().toISOString().split('T')[0],
+function buildLocalStats(records, days = 7) {
+  const buckets = [];
+  const counts = new Map();
+
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const key = formatLocalDate(date);
+    const bucket = {
+      date: key,
+      day: DAY_NAMES[date.getDay()],
+      count: 0,
+    };
+    buckets.push(bucket);
+    counts.set(key, bucket);
+  }
+
+  records.forEach((record) => {
+    const bucket = counts.get(record.date);
+    if (bucket) bucket.count += 1;
   });
 
-  const filtered = useMemo(() => {
-    return attendance.filter(a => {
-      const m = members.find(mb => mb.id === a.memberId);
-      return (
-        (!search || m?.name.toLowerCase().includes(search.toLowerCase())) &&
-        (!date   || a.date === date)
-      );
-    }).sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [attendance, members, search, date]);
+  return {
+    todayCount: counts.get(formatLocalDate(new Date()))?.count || 0,
+    daily: buckets,
+  };
+}
 
-  const todayCount  = attendance.filter(a => a.date === '2024-03-25').length;
-  const uniqueCount = new Set(attendance.map(a => a.memberId)).size;
-  const avgMins     = (() => {
-    const durations = attendance.filter(a => a.checkOut).map(a => {
-      const [ih, im] = a.checkIn.split(':').map(Number);
-      const [oh, om] = a.checkOut.split(':').map(Number);
-      return (oh * 60 + om) - (ih * 60 + im);
-    });
-    return durations.length ? Math.round(durations.reduce((s, d) => s + d, 0) / durations.length) : 0;
+export default function Attendance() {
+  const { state } = useApp();
+  const role = state.currentUser?.role;
+  const isAdmin = role === 'ADMIN';
+  const isTrainer = role === 'TRAINER';
+  const isMember = role === 'MEMBER';
+  const canSelectMember = isAdmin || isTrainer;
+  const memberId = state.currentUser?.member?.id;
+
+  const [records, setRecords] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [tab, setTab] = useState('records');
+
+  const [search, setSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ memberId: '' });
+
+  const loadRecords = useCallback(async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const params = {};
+      if (dateFilter) {
+        params.from = dateFilter;
+        params.to = dateFilter;
+      }
+
+      if (isMember) {
+        if (!memberId) {
+          throw new Error('Your member profile is still loading. Please try again.');
+        }
+
+        const historyRes = await attendanceApi.getMemberHistory(memberId, {
+          ...params,
+          limit: 100,
+        });
+
+        setRecords(historyRes.data);
+        setStats(buildLocalStats(historyRes.data));
+      } else {
+        const [recordsRes, statsRes] = await Promise.all([
+          attendanceApi.getAll({ ...params, limit: 100 }),
+          attendanceApi.getStats(7),
+        ]);
+
+        setRecords(recordsRes.data);
+        setStats(statsRes);
+      }
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFilter, isMember, memberId]);
+
+  useEffect(() => {
+    loadRecords();
+  }, [loadRecords]);
+
+  useEffect(() => {
+    if (!canSelectMember) return;
+
+    membersApi
+      .getAll({ status: 'ACTIVE', limit: 100 })
+      .then((res) => setMembers(res.data))
+      .catch(() => {});
+  }, [canSelectMember]);
+
+  const filtered = useMemo(() => {
+    if (!search) return records;
+    return records.filter((record) =>
+      record.memberName?.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [records, search]);
+
+  const totalRecords = records.length;
+  const uniqueMembers = isMember
+    ? (records.length > 0 ? 1 : 0)
+    : new Set(records.map((record) => record.memberId)).size;
+  const avgMins = (() => {
+    const durations = records
+      .filter((record) => record.checkIn && record.checkOut)
+      .map((record) => {
+        const [inHour, inMinute] = record.checkIn.split(':').map(Number);
+        const [outHour, outMinute] = record.checkOut.split(':').map(Number);
+        return (outHour * 60 + outMinute) - (inHour * 60 + inMinute);
+      })
+      .filter((minutes) => minutes > 0);
+
+    if (!durations.length) return 0;
+    return Math.round(durations.reduce((sum, minutes) => sum + minutes, 0) / durations.length);
   })();
 
-  const handleCheckIn = (e) => {
-    e.preventDefault();
-    if (!form.memberId) { setFErr('Please select a member'); return; }
-    if (!form.checkIn)  { setFErr('Check-in time is required'); return; }
-    setFErr('');
-    dispatch({
-      type: 'CHECK_IN',
-      payload: {
-        id: Date.now(),
-        memberId: parseInt(form.memberId),
-        date: form.date,
-        checkIn: form.checkIn,
-        checkOut: form.checkOut || null,
-      },
-    });
-    setForm({ memberId: '', checkIn: '', checkOut: '', date: new Date().toISOString().split('T')[0] });
-    setModal(false);
+  const todayCount = stats?.todayCount || 0;
+  const weeklyData = stats?.daily || [];
+  const peakVal = weeklyData.length ? Math.max(...weeklyData.map((day) => day.count)) : 0;
+  const showActionColumn = true;
+  const emptyColSpan = showActionColumn ? 7 : 6;
+
+  const handleCheckIn = async (event) => {
+    event.preventDefault();
+    if (canSelectMember && !form.memberId) {
+      setFormError('Please select a member.');
+      return;
+    }
+
+    setSaving(true);
+    setFormError('');
+
+    try {
+      const selectedMemberId = canSelectMember ? parseInt(form.memberId, 10) : null;
+      await attendanceApi.checkIn(selectedMemberId);
+      setShowModal(false);
+      setForm({ memberId: '' });
+      await loadRecords();
+    } catch (saveError) {
+      setFormError(getErrorMessage(saveError));
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const peakVal = Math.max(...ATTENDANCE_WEEKLY.map(d => d.count));
+  const handleCheckOut = async (record) => {
+    try {
+      await attendanceApi.checkOut(record.id);
+      await loadRecords();
+    } catch (saveError) {
+      alert(getErrorMessage(saveError));
+    }
+  };
 
   return (
     <div>
       <div className="page-header">
         <div>
           <h2 className="page-title">Attendance</h2>
-          <p className="page-subtitle">{attendance.length} total records across all members</p>
+          <p className="page-subtitle">
+            {isMember
+              ? `${totalRecords} records in your attendance history`
+              : `${totalRecords} total records across all members`}
+          </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setModal(true)}>
-          <Plus size={15} /> Record Check-in
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            setShowModal(true);
+            setFormError('');
+          }}
+        >
+          <Plus size={15} /> {isMember ? 'Check In' : 'Record Check-in'}
         </button>
       </div>
 
-      {/* Stat cards */}
       <div className="grid-4" style={{ marginBottom: 24 }}>
         {[
-          { label: "Today's Check-ins", value: todayCount,  icon: CalendarCheck, color: '#e11d48', bg: 'rgba(225,29,72,0.1)' },
-          { label: 'Total Records',     value: attendance.length, icon: TrendingUp, color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
-          { label: 'Unique Members',    value: uniqueCount, icon: Users,         color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-          { label: 'Avg Duration',      value: `${avgMins}m`, icon: Clock,       color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
-        ].map(c => {
-          const Icon = c.icon;
+          {
+            label: isMember ? "Today's Visits" : "Today's Check-ins",
+            value: todayCount,
+            icon: CalendarCheck,
+            color: '#e11d48',
+            bg: 'rgba(225,29,72,0.1)',
+          },
+          {
+            label: 'Total Records',
+            value: totalRecords,
+            icon: TrendingUp,
+            color: '#22c55e',
+            bg: 'rgba(34,197,94,0.1)',
+          },
+          {
+            label: isMember ? 'Account Scope' : 'Unique Members',
+            value: isMember ? '1' : uniqueMembers,
+            icon: Users,
+            color: '#f59e0b',
+            bg: 'rgba(245,158,11,0.1)',
+          },
+          {
+            label: 'Avg Duration',
+            value: `${avgMins}m`,
+            icon: Clock,
+            color: '#3b82f6',
+            bg: 'rgba(59,130,246,0.1)',
+          },
+        ].map((card) => {
+          const Icon = card.icon;
           return (
-            <div key={c.label} className="stat-card" style={{ '--accent-color': c.color }}>
-              <div className="stat-icon" style={{ background: c.bg }}><Icon size={18} color={c.color} /></div>
+            <div key={card.label} className="stat-card" style={{ '--accent-color': card.color }}>
+              <div className="stat-icon" style={{ background: card.bg }}>
+                <Icon size={18} color={card.color} />
+              </div>
               <div className="stat-info">
-                <div className="stat-value">{c.value}</div>
-                <div className="stat-label">{c.label}</div>
+                <div className="stat-value">{card.value}</div>
+                <div className="stat-label">{card.label}</div>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Tabs */}
       <div className="tabs">
-        <button className={`tab-btn ${tab === 'records' ? 'active' : ''}`} onClick={() => setTab('records')}>Records</button>
-        <button className={`tab-btn ${tab === 'report'  ? 'active' : ''}`} onClick={() => setTab('report')}>Weekly Report</button>
+        <button
+          className={`tab-btn ${tab === 'records' ? 'active' : ''}`}
+          onClick={() => setTab('records')}
+        >
+          Records
+        </button>
+        <button
+          className={`tab-btn ${tab === 'report' ? 'active' : ''}`}
+          onClick={() => setTab('report')}
+        >
+          Weekly Report
+        </button>
       </div>
 
       {tab === 'records' ? (
-        <>
-          <div className="filter-bar">
-            <div className="search-input-wrapper" style={{ flex: 1 }}>
-              <Search size={14} className="search-icon" />
-              <input className="form-input search-input" placeholder="Search member…" value={search} onChange={e => setSearch(e.target.value)} />
+        loading ? (
+          <Spinner />
+        ) : error ? (
+          <ErrorState message={error} onRetry={loadRecords} />
+        ) : (
+          <>
+            <div className="filter-bar">
+              <div className="search-input-wrapper" style={{ flex: 1 }}>
+                <Search size={14} className="search-icon" />
+                <input
+                  className="form-input search-input"
+                  placeholder="Search member..."
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </div>
+              <input
+                type="date"
+                className="form-input"
+                style={{ width: 'auto' }}
+                value={dateFilter}
+                onChange={(event) => setDateFilter(event.target.value)}
+              />
+              {dateFilter && (
+                <button className="btn btn-secondary btn-sm" onClick={() => setDateFilter('')}>
+                  Clear
+                </button>
+              )}
             </div>
-            <input type="date" className="form-input" style={{ width: 'auto' }} value={date} onChange={e => setDate(e.target.value)} />
-            {date && <button className="btn btn-secondary btn-sm" onClick={() => setDate('')}>Clear</button>}
-          </div>
 
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Member</th>
-                  <th>Date</th>
-                  <th>Check In</th>
-                  <th>Check Out</th>
-                  <th>Duration</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={6}><div className="empty-state"><Search size={28} /><h3>No records</h3></div></td></tr>
-                ) : filtered.map((rec, idx) => {
-                  const m = members.find(mb => mb.id === rec.memberId);
-                  let dur = '—';
-                  if (rec.checkOut) {
-                    const [ih, im] = rec.checkIn.split(':').map(Number);
-                    const [oh, om] = rec.checkOut.split(':').map(Number);
-                    const mins = (oh * 60 + om) - (ih * 60 + im);
-                    dur = `${Math.floor(mins / 60)}h ${mins % 60}m`;
-                  }
-                  return (
-                    <tr key={rec.id}>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                          <div className="avatar" style={{ width: 30, height: 30, fontSize: 10, background: AVATAR_BG[idx % AVATAR_BG.length] }}>{m?.avatar}</div>
-                          <span style={{ fontWeight: 700, fontSize: 13 }}>{m?.name || 'Unknown'}</span>
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Member</th>
+                    <th>Date</th>
+                    <th>Check In</th>
+                    <th>Check Out</th>
+                    <th>Duration</th>
+                    <th>Status</th>
+                    {showActionColumn && <th>Action</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={emptyColSpan}>
+                        <div className="empty-state">
+                          <Search size={28} />
+                          <h3>No records</h3>
                         </div>
                       </td>
-                      <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{rec.date}</td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
-                          <Clock size={12} color="var(--success)" /> {rec.checkIn}
-                        </div>
-                      </td>
-                      <td>
-                        {rec.checkOut
-                          ? <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}><Clock size={12} color="var(--danger)" /> {rec.checkOut}</div>
-                          : <span className="badge badge-active">Active</span>}
-                      </td>
-                      <td style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>{dur}</td>
-                      <td><span className={`badge badge-${rec.checkOut ? 'inactive' : 'active'}`}>{rec.checkOut ? 'Done' : 'In Progress'}</span></td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
+                  ) : (
+                    filtered.map((record, index) => (
+                      <tr key={record.id}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                            <div
+                              className="avatar"
+                              style={{
+                                width: 30,
+                                height: 30,
+                                fontSize: 10,
+                                background: AVATAR_BG[index % AVATAR_BG.length],
+                              }}
+                            >
+                              {record.memberAvatar || state.currentUser?.name?.slice(0, 1) || '?'}
+                            </div>
+                            <span style={{ fontWeight: 700, fontSize: 13 }}>
+                              {record.memberName || state.currentUser?.name}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{record.date}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
+                            <Clock size={12} color="var(--success)" /> {record.checkIn}
+                          </div>
+                        </td>
+                        <td>
+                          {record.checkOut ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
+                              <Clock size={12} color="var(--danger)" /> {record.checkOut}
+                            </div>
+                          ) : (
+                            <span className="badge badge-active">Active</span>
+                          )}
+                        </td>
+                        <td style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
+                          {calcDuration(record.checkIn, record.checkOut)}
+                        </td>
+                        <td>
+                          <span className={`badge badge-${record.checkOut ? 'inactive' : 'active'}`}>
+                            {record.checkOut ? 'Done' : 'In Progress'}
+                          </span>
+                        </td>
+                        {showActionColumn && (
+                          <td>
+                            {!record.checkOut && (
+                              <button
+                                className="btn btn-sm btn-secondary"
+                                onClick={() => handleCheckOut(record)}
+                              >
+                                Check Out
+                              </button>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )
       ) : (
         <div className="card">
-          <div className="section-title"><TrendingUp size={13} color="var(--red)" /> Weekly Attendance Report</div>
+          <div className="section-title">
+            <TrendingUp size={13} color="var(--red)" /> Weekly Attendance Report
+          </div>
           <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={ATTENDANCE_WEEKLY} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="2 4" stroke="#1e1e1e" vertical={false} />
               <XAxis dataKey="day" tick={{ fill: '#52525b', fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#52525b', fontSize: 12 }} axisLine={false} tickLine={false} />
               <Tooltip
-                contentStyle={{ background: '#1a1a1a', border: '1px solid #2e2e2e', borderRadius: 6, fontSize: 12 }}
+                contentStyle={{
+                  background: '#1a1a1a',
+                  border: '1px solid #2e2e2e',
+                  borderRadius: 6,
+                  fontSize: 12,
+                }}
                 labelStyle={{ color: '#a1a1aa', fontWeight: 700 }}
                 itemStyle={{ color: '#e11d48' }}
               />
               <Bar dataKey="count" name="Check-ins" radius={[4, 4, 0, 0]} maxBarSize={40}>
-                {ATTENDANCE_WEEKLY.map((entry, i) => (
-                  <Cell key={i} fill={entry.count === peakVal ? '#e11d48' : '#1e1e1e'} />
+                {weeklyData.map((entry, index) => (
+                  <Cell
+                    key={entry.date || index}
+                    fill={entry.count === peakVal && peakVal > 0 ? '#e11d48' : '#1e1e1e'}
+                  />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginTop: 24 }}>
-            {[
-              { label: 'Peak Day',     value: `Sat (${peakVal})` },
-              { label: 'Slowest Day',  value: `Sun (${Math.min(...ATTENDANCE_WEEKLY.map(d => d.count))})` },
-              { label: 'Weekly Total', value: ATTENDANCE_WEEKLY.reduce((s, d) => s + d.count, 0) },
-              { label: 'Daily Avg',    value: Math.round(ATTENDANCE_WEEKLY.reduce((s, d) => s + d.count, 0) / 7) },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ textAlign: 'center', padding: '14px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{label}</div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--red)' }}>{value}</div>
-              </div>
-            ))}
-          </div>
+          {weeklyData.length > 0 && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4,1fr)',
+                gap: 12,
+                marginTop: 24,
+              }}
+            >
+              {[
+                {
+                  label: 'Peak Day',
+                  value: `${weeklyData.find((day) => day.count === peakVal)?.day || '-'} (${peakVal})`,
+                },
+                {
+                  label: 'Slowest Day',
+                  value: (() => {
+                    const min = Math.min(...weeklyData.map((day) => day.count));
+                    return `${weeklyData.find((day) => day.count === min)?.day || '-'} (${min})`;
+                  })(),
+                },
+                {
+                  label: 'Weekly Total',
+                  value: weeklyData.reduce((sum, day) => sum + day.count, 0),
+                },
+                {
+                  label: 'Daily Avg',
+                  value: Math.round(
+                    weeklyData.reduce((sum, day) => sum + day.count, 0) / (weeklyData.length || 1)
+                  ),
+                },
+              ].map(({ label, value }) => (
+                <div
+                  key={label}
+                  style={{
+                    textAlign: 'center',
+                    padding: '14px',
+                    background: 'var(--bg-elevated)',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: 'var(--text-muted)',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      marginBottom: 6,
+                    }}
+                  >
+                    {label}
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--red)' }}>{value}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Check-in modal */}
-      <Modal isOpen={showModal} onClose={() => setModal(false)} title="Record Check-in">
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Record Check-in">
         <form onSubmit={handleCheckIn} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {formError && (
-            <div style={{ padding: '10px 14px', background: 'var(--danger-faint)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 'var(--radius-sm)', color: 'var(--danger)', fontSize: 13 }}>
+            <div
+              style={{
+                padding: '10px 14px',
+                background: 'var(--danger-faint)',
+                border: '1px solid rgba(239,68,68,0.2)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--danger)',
+                fontSize: 13,
+              }}
+            >
               {formError}
             </div>
           )}
-          <div className="form-group">
-            <label className="form-label">Member *</label>
-            <select className="form-input" value={form.memberId} onChange={e => setForm(f => ({ ...f, memberId: e.target.value }))}>
-              <option value="">Select member…</option>
-              {members.filter(m => m.status === 'active').map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Date *</label>
-            <input type="date" className="form-input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
-          </div>
-          <div className="grid-2">
+
+          {canSelectMember && (
             <div className="form-group">
-              <label className="form-label">Check-in Time *</label>
-              <input type="time" className="form-input" value={form.checkIn} onChange={e => setForm(f => ({ ...f, checkIn: e.target.value }))} />
+              <label className="form-label">Member *</label>
+              <select
+                className="form-input"
+                value={form.memberId}
+                onChange={(event) => setForm((prev) => ({ ...prev, memberId: event.target.value }))}
+              >
+                <option value="">Select member...</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="form-group">
-              <label className="form-label">Check-out Time</label>
-              <input type="time" className="form-input" value={form.checkOut} onChange={e => setForm(f => ({ ...f, checkOut: e.target.value }))} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 6, borderTop: '1px solid var(--border)', marginTop: 4 }}>
-            <button type="button" className="btn btn-secondary" onClick={() => setModal(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary"><CalendarCheck size={14} /> Record</button>
+          )}
+
+          {isMember && (
+            <p
+              style={{
+                fontSize: 13,
+                color: 'var(--text-muted)',
+                padding: '12px',
+                background: 'var(--bg-elevated)',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              This will record your check-in at the current time.
+            </p>
+          )}
+
+          <div
+            style={{
+              display: 'flex',
+              gap: 10,
+              justifyContent: 'flex-end',
+              paddingTop: 6,
+              borderTop: '1px solid var(--border)',
+              marginTop: 4,
+            }}
+          >
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setShowModal(false)}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? (
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 16,
+                    height: 16,
+                    border: '2px solid rgba(255,255,255,0.25)',
+                    borderTopColor: '#fff',
+                    borderRadius: '50%',
+                    animation: 'spin 0.65s linear infinite',
+                  }}
+                />
+              ) : (
+                <>
+                  <CalendarCheck size={14} /> Check In
+                </>
+              )}
+            </button>
           </div>
         </form>
       </Modal>

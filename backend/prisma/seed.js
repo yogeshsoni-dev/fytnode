@@ -1,0 +1,361 @@
+'use strict';
+
+const path = require('path');
+// Must be set before any DB connection so SSL CA cert is trusted
+process.env.NODE_EXTRA_CA_CERTS = path.join(__dirname, '..', 'certs', 'ca.pem');
+
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
+
+const prisma = new PrismaClient();
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function toDateTime(dateStr, timeStr) {
+  return new Date(`${dateStr}T${timeStr}:00.000Z`);
+}
+
+function toDate(dateStr) {
+  return new Date(`${dateStr}T00:00:00.000Z`);
+}
+
+// ─── Seed data aligned with mockData.js ───────────────────────────────────────
+
+async function main() {
+  console.log('🌱  Seeding database...');
+
+  // ── Subscription Plans ──────────────────────────────────────────────────────
+  const plans = await Promise.all([
+    prisma.subscriptionPlan.upsert({
+      where: { id: 1 },
+      update: {},
+      create: {
+        id: 1,
+        name: 'Basic',
+        price: 29,
+        duration: 1,
+        features: ['Gym Access', 'Locker Room', '2 Group Classes/month'],
+        color: '#6366f1',
+      },
+    }),
+    prisma.subscriptionPlan.upsert({
+      where: { id: 2 },
+      update: {},
+      create: {
+        id: 2,
+        name: 'Standard',
+        price: 59,
+        duration: 1,
+        features: ['Gym Access', 'Locker Room', 'Unlimited Group Classes', '1 PT Session/month'],
+        color: '#8b5cf6',
+      },
+    }),
+    prisma.subscriptionPlan.upsert({
+      where: { id: 3 },
+      update: {},
+      create: {
+        id: 3,
+        name: 'Premium',
+        price: 99,
+        duration: 1,
+        features: ['All Standard', '4 PT Sessions/month', 'Nutrition Consultation', 'Spa Access'],
+        color: '#ec4899',
+      },
+    }),
+    prisma.subscriptionPlan.upsert({
+      where: { id: 4 },
+      update: {},
+      create: {
+        id: 4,
+        name: 'Annual',
+        price: 799,
+        duration: 12,
+        features: ['All Premium', 'Priority Booking', 'Guest Passes x12', 'Free Merchandise'],
+        color: '#f59e0b',
+      },
+    }),
+  ]);
+  console.log(`  ✓  ${plans.length} subscription plans`);
+
+  // ── Admin user ──────────────────────────────────────────────────────────────
+  const adminHash = await bcrypt.hash('admin123', 12);
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@gym.com' },
+    update: {},
+    create: {
+      email: 'admin@gym.com',
+      password: adminHash,
+      name: 'Alex Johnson',
+      role: 'ADMIN',
+    },
+  });
+
+  // ── Trainer users + Trainer profiles ────────────────────────────────────────
+  const trainerHash = await bcrypt.hash('trainer123', 12);
+  const trainerUser = await prisma.user.upsert({
+    where: { email: 'trainer@gym.com' },
+    update: {},
+    create: {
+      email: 'trainer@gym.com',
+      password: trainerHash,
+      name: 'Sarah Williams',
+      role: 'TRAINER',
+    },
+  });
+
+  // Extra trainer users (staff, no login credentials in mockData)
+  const carlosHash = await bcrypt.hash('carlos123', 12);
+  const carlosUser = await prisma.user.upsert({
+    where: { email: 'carlos@gym.com' },
+    update: {},
+    create: { email: 'carlos@gym.com', password: carlosHash, name: 'Carlos Rivera', role: 'TRAINER' },
+  });
+
+  const jessicaHash = await bcrypt.hash('jessica123', 12);
+  const jessicaUser = await prisma.user.upsert({
+    where: { email: 'jessica@gym.com' },
+    update: {},
+    create: { email: 'jessica@gym.com', password: jessicaHash, name: 'Jessica Kim', role: 'TRAINER' },
+  });
+
+  const davidHash = await bcrypt.hash('david123', 12);
+  const davidUser = await prisma.user.upsert({
+    where: { email: 'david@gym.com' },
+    update: {},
+    create: { email: 'david@gym.com', password: davidHash, name: 'David Chen', role: 'TRAINER' },
+  });
+
+  // Trainer profiles
+  const [t1, t2, t3, t4] = await Promise.all([
+    prisma.trainer.upsert({
+      where: { userId: trainerUser.id },
+      update: {},
+      create: {
+        id: 1,
+        userId: trainerUser.id,
+        phone: '555-0201',
+        specialization: 'Strength & Conditioning',
+        experience: 6,
+        schedule: 'Mon-Fri 6AM-2PM',
+        status: 'ACTIVE',
+        rating: 4.8,
+      },
+    }),
+    prisma.trainer.upsert({
+      where: { userId: carlosUser.id },
+      update: {},
+      create: {
+        id: 2,
+        userId: carlosUser.id,
+        phone: '555-0202',
+        specialization: 'Yoga & Flexibility',
+        experience: 8,
+        schedule: 'Mon-Sat 8AM-4PM',
+        status: 'ACTIVE',
+        rating: 4.9,
+      },
+    }),
+    prisma.trainer.upsert({
+      where: { userId: jessicaUser.id },
+      update: {},
+      create: {
+        id: 3,
+        userId: jessicaUser.id,
+        phone: '555-0203',
+        specialization: 'Cardio & HIIT',
+        experience: 4,
+        schedule: 'Tue-Sun 10AM-6PM',
+        status: 'ACTIVE',
+        rating: 4.7,
+      },
+    }),
+    prisma.trainer.upsert({
+      where: { userId: davidUser.id },
+      update: {},
+      create: {
+        id: 4,
+        userId: davidUser.id,
+        phone: '555-0204',
+        specialization: 'CrossFit & Olympic Lifting',
+        experience: 10,
+        schedule: 'N/A',
+        status: 'INACTIVE',
+        rating: 4.6,
+      },
+    }),
+  ]);
+  console.log(`  ✓  4 trainers`);
+
+  // ── Member users + Member profiles ──────────────────────────────────────────
+  const memberHash = await bcrypt.hash('member123', 12);
+  const memberUser = await prisma.user.upsert({
+    where: { email: 'member@gym.com' },
+    update: {},
+    create: {
+      email: 'member@gym.com',
+      password: memberHash,
+      name: 'Mike Davis',
+      role: 'MEMBER',
+    },
+  });
+
+  // Remaining member users
+  const membersData = [
+    { email: 'emma@example.com',   name: 'Emma Wilson',   password: 'emma123' },
+    { email: 'james@example.com',  name: 'James Brown',   password: 'james123' },
+    { email: 'olivia@example.com', name: 'Olivia Garcia', password: 'olivia123' },
+    { email: 'liam@example.com',   name: 'Liam Martinez', password: 'liam123' },
+    { email: 'sophia@example.com', name: 'Sophia Lee',    password: 'sophia123' },
+    { email: 'noah@example.com',   name: 'Noah Taylor',   password: 'noah123' },
+    { email: 'ava@example.com',    name: 'Ava Anderson',  password: 'ava123' },
+  ];
+
+  const extraMemberUsers = await Promise.all(
+    membersData.map(async (m) => {
+      const hash = await bcrypt.hash(m.password, 12);
+      return prisma.user.upsert({
+        where: { email: m.email },
+        update: {},
+        create: { email: m.email, password: hash, name: m.name, role: 'MEMBER' },
+      });
+    })
+  );
+
+  const allMemberUsers = [memberUser, ...extraMemberUsers];
+
+  // Member profiles
+  const memberProfiles = [
+    { phone: '555-0101', age: 28, address: '123 Main St',    joinDate: '2024-01-15', status: 'ACTIVE',   trainerId: t1.id, subscriptionId: 1 },
+    { phone: '555-0102', age: 32, address: '456 Oak Ave',    joinDate: '2024-02-01', status: 'ACTIVE',   trainerId: t2.id, subscriptionId: 2 },
+    { phone: '555-0103', age: 25, address: '789 Pine Rd',    joinDate: '2023-11-10', status: 'ACTIVE',   trainerId: t1.id, subscriptionId: 3 },
+    { phone: '555-0104', age: 29, address: '321 Elm St',     joinDate: '2024-03-05', status: 'ACTIVE',   trainerId: t3.id, subscriptionId: 1 },
+    { phone: '555-0105', age: 35, address: '654 Maple Dr',   joinDate: '2023-09-20', status: 'EXPIRED',  trainerId: t2.id, subscriptionId: 2 },
+    { phone: '555-0106', age: 27, address: '987 Cedar Ln',   joinDate: '2024-01-30', status: 'ACTIVE',   trainerId: t3.id, subscriptionId: 4 },
+    { phone: '555-0107', age: 31, address: '147 Birch Blvd', joinDate: '2024-02-14', status: 'PENDING',  trainerId: t1.id, subscriptionId: 1 },
+    { phone: '555-0108', age: 24, address: '258 Walnut Way', joinDate: '2023-12-01', status: 'ACTIVE',   trainerId: t2.id, subscriptionId: 3 },
+  ];
+
+  const createdMembers = await Promise.all(
+    allMemberUsers.map((u, i) => {
+      const p = memberProfiles[i];
+      return prisma.member.upsert({
+        where: { userId: u.id },
+        update: {},
+        create: {
+          id: i + 1,
+          userId: u.id,
+          phone: p.phone,
+          age: p.age,
+          address: p.address,
+          joinDate: toDate(p.joinDate),
+          status: p.status,
+          trainerId: p.trainerId,
+        },
+      });
+    })
+  );
+  console.log(`  ✓  ${createdMembers.length} members`);
+
+  // ── Subscriptions ────────────────────────────────────────────────────────────
+  const subsData = [
+    { memberId: 1, planId: 1, startDate: '2024-03-01', endDate: '2024-04-01', status: 'ACTIVE',   amountPaid: 29 },
+    { memberId: 2, planId: 2, startDate: '2024-02-01', endDate: '2024-03-01', status: 'ACTIVE',   amountPaid: 59 },
+    { memberId: 3, planId: 3, startDate: '2024-01-01', endDate: '2024-04-01', status: 'ACTIVE',   amountPaid: 99 },
+    { memberId: 4, planId: 1, startDate: '2024-03-05', endDate: '2024-04-05', status: 'ACTIVE',   amountPaid: 29 },
+    { memberId: 5, planId: 2, startDate: '2023-09-20', endDate: '2023-10-20', status: 'EXPIRED',  amountPaid: 59 },
+    { memberId: 6, planId: 4, startDate: '2024-01-30', endDate: '2025-01-30', status: 'ACTIVE',   amountPaid: 799 },
+    { memberId: 7, planId: 1, startDate: '2024-02-14', endDate: '2024-03-14', status: 'PENDING',  amountPaid: 0 },
+    { memberId: 8, planId: 3, startDate: '2023-12-01', endDate: '2024-03-01', status: 'ACTIVE',   amountPaid: 99 },
+  ];
+
+  const subs = await Promise.all(
+    subsData.map((s, i) =>
+      prisma.subscription.upsert({
+        where: { id: i + 1 },
+        update: {},
+        create: {
+          id: i + 1,
+          memberId: createdMembers[s.memberId - 1].id,
+          planId: s.planId,
+          startDate: toDate(s.startDate),
+          endDate: toDate(s.endDate),
+          status: s.status,
+          amountPaid: s.amountPaid,
+        },
+      })
+    )
+  );
+  console.log(`  ✓  ${subs.length} subscriptions`);
+
+  // ── Attendance ───────────────────────────────────────────────────────────────
+  const attendanceData = [
+    { memberId: 1, date: '2024-03-25', checkIn: '08:30', checkOut: '10:00' },
+    { memberId: 2, date: '2024-03-25', checkIn: '09:15', checkOut: '10:45' },
+    { memberId: 3, date: '2024-03-25', checkIn: '07:00', checkOut: '08:30' },
+    { memberId: 1, date: '2024-03-24', checkIn: '08:45', checkOut: '10:15' },
+    { memberId: 4, date: '2024-03-24', checkIn: '10:00', checkOut: '11:30' },
+    { memberId: 6, date: '2024-03-24', checkIn: '06:30', checkOut: '08:00' },
+    { memberId: 2, date: '2024-03-23', checkIn: '09:00', checkOut: '10:30' },
+    { memberId: 8, date: '2024-03-23', checkIn: '17:30', checkOut: '19:00' },
+    { memberId: 3, date: '2024-03-22', checkIn: '07:15', checkOut: '08:45' },
+    { memberId: 1, date: '2024-03-22', checkIn: '08:30', checkOut: '10:00' },
+  ];
+
+  let attCount = 0;
+  for (const a of attendanceData) {
+    const memberId = createdMembers[a.memberId - 1].id;
+    await prisma.attendance.upsert({
+      where: { memberId_date: { memberId, date: toDate(a.date) } },
+      update: {},
+      create: {
+        memberId,
+        date: toDate(a.date),
+        checkIn:  toDateTime(a.date, a.checkIn),
+        checkOut: toDateTime(a.date, a.checkOut),
+      },
+    });
+    attCount++;
+  }
+  console.log(`  ✓  ${attCount} attendance records`);
+
+  // ── Notifications ────────────────────────────────────────────────────────────
+  const notifData = [
+    { type: 'RENEWAL',      title: 'Subscription Expiring Soon', message: "Liam Martinez's subscription expires in 3 days.", priority: 'HIGH',   read: false, date: '2024-03-25' },
+    { type: 'PAYMENT',      title: 'Payment Pending',            message: 'Noah Taylor has a pending payment of $29.',         priority: 'HIGH',   read: false, date: '2024-03-24' },
+    { type: 'ANNOUNCEMENT', title: 'New Equipment Arrived',      message: "We've installed 5 new treadmills on floor 2.",       priority: 'LOW',    read: true,  date: '2024-03-23' },
+    { type: 'RENEWAL',      title: 'Subscription Expired',       message: "Ava Anderson's subscription expired yesterday.",     priority: 'MEDIUM', read: false, date: '2024-03-22' },
+    { type: 'ANNOUNCEMENT', title: 'Holiday Hours',              message: 'Gym will operate from 8AM-6PM on Easter Sunday.',   priority: 'LOW',    read: true,  date: '2024-03-21' },
+    { type: 'TRAINER',      title: 'Trainer Schedule Update',    message: 'David Chen is on leave until April 10th.',           priority: 'MEDIUM', read: true,  date: '2024-03-20' },
+  ];
+
+  const notifs = await Promise.all(
+    notifData.map((n, i) =>
+      prisma.notification.upsert({
+        where: { id: i + 1 },
+        update: {},
+        create: {
+          id: i + 1,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          priority: n.priority,
+          read: n.read,
+          createdAt: toDate(n.date),
+        },
+      })
+    )
+  );
+  console.log(`  ✓  ${notifs.length} notifications`);
+
+  console.log('\n✅  Seed complete!\n');
+  console.log('Demo credentials:');
+  console.log('  Admin   → admin@gym.com    / admin123');
+  console.log('  Trainer → trainer@gym.com  / trainer123');
+  console.log('  Member  → member@gym.com   / member123');
+}
+
+main()
+  .catch((e) => { console.error('❌  Seed failed:', e); process.exit(1); })
+  .finally(async () => { await prisma.$disconnect(); });

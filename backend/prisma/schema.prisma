@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  TRAINER
+  MEMBER
+}
+
+enum MemberStatus {
+  ACTIVE
+  EXPIRED
+  PENDING
+  INACTIVE
+}
+
+enum TrainerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SubStatus {
+  ACTIVE
+  EXPIRED
+  PENDING
+  CANCELLED
+}
+
+enum NotificationType {
+  RENEWAL
+  PAYMENT
+  ANNOUNCEMENT
+  TRAINER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  password      String
+  name          String
+  role          Role           @default(MEMBER)
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  member        Member?
+  trainer       Trainer?
+  refreshTokens RefreshToken[]
+  notifications Notification[]
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Member {
+  id            Int            @id @default(autoincrement())
+  userId        Int            @unique
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone         String?
+  age           Int?
+  address       String?
+  joinDate      DateTime       @default(now())
+  status        MemberStatus   @default(ACTIVE)
+  trainerId     Int?
+  trainer       Trainer?       @relation(fields: [trainerId], references: [id])
+  subscriptions Subscription[]
+  attendance    Attendance[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Trainer {
+  id             Int           @id @default(autoincrement())
+  userId         Int           @unique
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone          String?
+  specialization String?
+  experience     Int?
+  schedule       String?
+  status         TrainerStatus @default(ACTIVE)
+  rating         Float?
+  members        Member[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model SubscriptionPlan {
+  id            Int            @id @default(autoincrement())
+  name          String
+  price         Float
+  duration      Int            // duration in months
+  features      String[]
+  color         String?
+  isActive      Boolean        @default(true)
+  subscriptions Subscription[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Subscription {
+  id         Int              @id @default(autoincrement())
+  memberId   Int
+  member     Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  planId     Int
+  plan       SubscriptionPlan @relation(fields: [planId], references: [id])
+  startDate  DateTime
+  endDate    DateTime
+  status     SubStatus        @default(ACTIVE)
+  amountPaid Float            @default(0)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+}
+
+model Attendance {
+  id        Int       @id @default(autoincrement())
+  memberId  Int
+  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  date      DateTime  @db.Date
+  checkIn   DateTime?
+  checkOut  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([memberId, date])
+  @@index([date])
+  @@index([memberId])
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  type      NotificationType
+  title     String
+  message   String
+  priority  Priority         @default(LOW)
+  read      Boolean          @default(false)
+  userId    Int?
+  user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([read])
+}
