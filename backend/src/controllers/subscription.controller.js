@@ -5,6 +5,7 @@ const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
 const { success, paginated } = require('../utils/response');
 const { resolveGymId } = require('../middleware/rbac.middleware');
+const { syncAutoincrementSequence, isUniqueIdConflict } = require('../utils/sequence');
 
 const SUB_INCLUDE = {
   member: { include: { user: { select: { id: true, name: true, email: true } } } },
@@ -82,17 +83,24 @@ exports.create = catchAsync(async (req, res, next) => {
   const end   = new Date(startDate);
   end.setMonth(end.getMonth() + plan.duration);
 
-  const sub = await prisma.subscription.create({
-    data: {
-      memberId:   Number.parseInt(memberId, 10),
-      planId:     Number.parseInt(planId, 10),
-      startDate:  start,
-      endDate:    end,
-      status:     status ? status.toUpperCase() : 'ACTIVE',
-      amountPaid: amountPaid != null ? Number.parseFloat(amountPaid) : plan.price,
-    },
-    include: SUB_INCLUDE,
-  });
+  const data = {
+    memberId:   Number.parseInt(memberId, 10),
+    planId:     Number.parseInt(planId, 10),
+    startDate:  start,
+    endDate:    end,
+    status:     status ? status.toUpperCase() : 'ACTIVE',
+    amountPaid: amountPaid != null ? Number.parseFloat(amountPaid) : plan.price,
+  };
+
+  let sub;
+  try {
+    sub = await prisma.subscription.create({ data, include: SUB_INCLUDE });
+  } catch (error) {
+    if (!isUniqueIdConflict(error)) throw error;
+
+    await syncAutoincrementSequence('Subscription');
+    sub = await prisma.subscription.create({ data, include: SUB_INCLUDE });
+  }
 
   success(res, sub, 201, 'Subscription created');
 });

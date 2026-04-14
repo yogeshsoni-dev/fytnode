@@ -21,6 +21,16 @@ function toDate(dateStr) {
   return new Date(`${dateStr}T00:00:00.000Z`);
 }
 
+async function syncSequence(tableName, columnName = 'id') {
+  await prisma.$executeRawUnsafe(`
+    SELECT setval(
+      pg_get_serial_sequence('\"${tableName}\"', '${columnName}'),
+      COALESCE((SELECT MAX("${columnName}") FROM "${tableName}"), 1),
+      COALESCE((SELECT MAX("${columnName}") IS NOT NULL FROM "${tableName}"), false)
+    )
+  `);
+}
+
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -357,7 +367,44 @@ async function main() {
   );
   console.log(`  ✓  ${notifs.length} notifications`);
 
+  // ── Products ─────────────────────────────────────────────────────────────────
+  const productsData = [
+    // Proteins
+    { id: 1,  name: 'Whey Protein Gold',       description: '5lb isolate, 25g protein per serving. Chocolate & Vanilla.',    price: 59.99,  stock: 100, category: 'PROTEIN',   imageUrl: null },
+    { id: 2,  name: 'Casein Protein',           description: 'Slow-digesting micellar casein, 24g protein. Ideal for night.', price: 49.99,  stock: 80,  category: 'PROTEIN',   imageUrl: null },
+    { id: 3,  name: 'Plant Protein Blend',      description: 'Pea + Rice protein, 22g per scoop. Vegan-friendly.',            price: 44.99,  stock: 60,  category: 'PROTEIN',   imageUrl: null },
+    { id: 4,  name: 'Mass Gainer 10lb',         description: '1250 calories per serving. Serious bulk formula.',               price: 69.99,  stock: 50,  category: 'PROTEIN',   imageUrl: null },
+    { id: 5,  name: 'BCAA Powder 400g',         description: '2:1:1 ratio, intra-workout recovery blend.',                    price: 29.99,  stock: 120, category: 'PROTEIN',   imageUrl: null },
+    { id: 6,  name: 'Creatine Monohydrate',     description: 'Pure micronized creatine, 500g. Unflavoured.',                  price: 24.99,  stock: 150, category: 'PROTEIN',   imageUrl: null },
+    // Equipment
+    { id: 7,  name: 'Adjustable Dumbbell Set',  description: '5–52.5 lb per dumbbell. Space-saving design.',                  price: 299.99, stock: 20,  category: 'EQUIPMENT', imageUrl: null },
+    { id: 8,  name: 'Resistance Bands Set',     description: '5-band set, 10–50 lb resistance. Includes carry bag.',          price: 34.99,  stock: 75,  category: 'EQUIPMENT', imageUrl: null },
+    { id: 9,  name: 'Yoga Mat Pro',             description: '6mm thick non-slip mat, 183x61cm.',                             price: 39.99,  stock: 60,  category: 'EQUIPMENT', imageUrl: null },
+    { id: 10, name: 'Pull-up Bar (Door)',        description: 'No-screw door frame pull-up bar, fits 24–36 inch doors.',       price: 49.99,  stock: 40,  category: 'EQUIPMENT', imageUrl: null },
+    { id: 11, name: 'Barbell 20kg Olympic',     description: 'Standard 20kg Olympic barbell, 28mm grip, chrome.',             price: 149.99, stock: 15,  category: 'EQUIPMENT', imageUrl: null },
+    { id: 12, name: 'Foam Roller',              description: 'High-density 90cm foam roller for muscle recovery.',             price: 24.99,  stock: 80,  category: 'EQUIPMENT', imageUrl: null },
+  ];
+
+  for (const p of productsData) {
+    await prisma.product.upsert({
+      where: { id: p.id },
+      update: {},
+      create: p,
+    });
+  }
+  console.log(`  ✓  ${productsData.length} products`);
+
   console.log('\n✅  Seed complete!\n');
+  await Promise.all([
+    syncSequence('Gym'),
+    syncSequence('SubscriptionPlan'),
+    syncSequence('Trainer'),
+    syncSequence('Member'),
+    syncSequence('Subscription'),
+    syncSequence('Notification'),
+    syncSequence('Product'),
+  ]);
+  console.log('  Sequence sync complete');
   console.log('Demo credentials:');
   console.log('  Super Admin → owner@fytnodes.com / superadmin123');
   console.log('  Admin       → admin@gym.com      / admin123');

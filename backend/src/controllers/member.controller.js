@@ -6,6 +6,7 @@ const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
 const { success, paginated } = require('../utils/response');
 const { resolveGymId } = require('../middleware/rbac.middleware');
+const { syncAutoincrementSequence, isUniqueIdConflict } = require('../utils/sequence');
 
 const MEMBER_INCLUDE = {
   user: { select: { id: true, email: true, name: true, role: true, isActive: true } },
@@ -93,7 +94,7 @@ exports.create = catchAsync(async (req, res, next) => {
 
   const hash = await bcrypt.hash(password, 12);
 
-  const member = await prisma.$transaction(async (tx) => {
+  const createMember = () => prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
         email: email.toLowerCase().trim(),
@@ -116,6 +117,16 @@ exports.create = catchAsync(async (req, res, next) => {
       include: MEMBER_INCLUDE,
     });
   });
+
+  let member;
+  try {
+    member = await createMember();
+  } catch (error) {
+    if (!isUniqueIdConflict(error)) throw error;
+
+    await syncAutoincrementSequence('Member');
+    member = await createMember();
+  }
 
   success(res, member, 201, 'Member created successfully');
 });

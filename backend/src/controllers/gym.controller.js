@@ -4,6 +4,7 @@ const prisma = require('../utils/prismaClient');
 const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
 const { success, paginated } = require('../utils/response');
+const { syncAutoincrementSequence, isUniqueIdConflict } = require('../utils/sequence');
 
 const GYM_SELECT = {
   id: true,
@@ -61,10 +62,17 @@ exports.getOne = catchAsync(async (req, res, next) => {
 exports.create = catchAsync(async (req, res) => {
   const { name, address, phone, email } = req.body;
 
-  const gym = await prisma.gym.create({
-    data: { name, address, phone, email },
-    select: GYM_SELECT,
-  });
+  const data = { name, address, phone, email };
+
+  let gym;
+  try {
+    gym = await prisma.gym.create({ data, select: GYM_SELECT });
+  } catch (error) {
+    if (!isUniqueIdConflict(error)) throw error;
+
+    await syncAutoincrementSequence('Gym');
+    gym = await prisma.gym.create({ data, select: GYM_SELECT });
+  }
 
   success(res, gym, 201, 'Gym created successfully');
 });

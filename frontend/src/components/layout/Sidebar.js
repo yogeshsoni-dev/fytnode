@@ -7,6 +7,7 @@ import {
   CreditCard,
   LayoutDashboard,
   LogOut,
+  ShoppingBag,
   UserCheck,
   Users,
   Zap,
@@ -15,6 +16,7 @@ import {
 const NAV = [
   { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard',     roles: ['SUPER_ADMIN', 'ADMIN', 'TRAINER', 'MEMBER'] },
   { to: '/gyms',          icon: Building2,       label: 'Gyms',          roles: ['SUPER_ADMIN'] },
+  { to: '/shop',          icon: ShoppingBag,     label: 'Shop',          roles: ['SUPER_ADMIN', 'ADMIN', 'TRAINER', 'MEMBER'] },
   { to: '/members',       icon: Users,           label: 'Members',       roles: ['ADMIN', 'TRAINER'] },
   { to: '/attendance',    icon: CalendarCheck,   label: 'Attendance',    roles: ['ADMIN', 'TRAINER', 'MEMBER'] },
   { to: '/subscriptions', icon: CreditCard,      label: 'Subscriptions', roles: ['ADMIN', 'TRAINER', 'MEMBER'] },

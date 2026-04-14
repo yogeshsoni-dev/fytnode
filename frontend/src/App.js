@@ -7,6 +7,7 @@ import Signup from './components/auth/Signup';
 import AppLayout from './components/layout/AppLayout';
 import Dashboard from './components/dashboard/Dashboard';
 import Gyms from './components/gyms/Gyms';
+import Shop from './components/shop/Shop';
 import Members from './components/members/Members';
 import Attendance from './components/attendance/Attendance';
 import Subscriptions from './components/subscriptions/Subscriptions';
@@ -24,6 +25,7 @@ export default function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="gyms" element={<Gyms />} />
+            <Route path="shop" element={<Shop />} />
             <Route path="members" element={<Members />} />
             <Route path="attendance" element={<Attendance />} />
             <Route path="subscriptions" element={<Subscriptions />} />

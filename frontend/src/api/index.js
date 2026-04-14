@@ -1,4 +1,5 @@
 export { authApi }          from './auth.api';
+export { shopApi }          from './shop.api';
 export { gymsApi }          from './gyms.api';
 export { membersApi }       from './members.api';
 export { trainersApi }      from './trainers.api';

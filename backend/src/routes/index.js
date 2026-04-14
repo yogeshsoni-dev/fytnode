@@ -4,6 +4,8 @@ const { Router } = require('express');
 
 const authRoutes         = require('./auth.routes');
 const gymRoutes          = require('./gym.routes');
+const productRoutes      = require('./product.routes');
+const orderRoutes        = require('./order.routes');
 const userRoutes         = require('./user.routes');
 const memberRoutes       = require('./member.routes');
 const attendanceRoutes   = require('./attendance.routes');
@@ -21,5 +23,7 @@ router.use('/attendance',    attendanceRoutes);
 router.use('/trainers',      trainerRoutes);
 router.use('/subscriptions', subscriptionRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/products',      productRoutes);
+router.use('/orders',        orderRoutes);
 
 module.exports = router;

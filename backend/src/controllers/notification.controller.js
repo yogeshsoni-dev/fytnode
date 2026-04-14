@@ -5,6 +5,7 @@ const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
 const { success, paginated } = require('../utils/response');
 const { resolveGymId } = require('../middleware/rbac.middleware');
+const { syncAutoincrementSequence, isUniqueIdConflict } = require('../utils/sequence');
 
 // ─── GET /api/notifications ───────────────────────────────────────────────────
 exports.getAll = catchAsync(async (req, res) => {
@@ -47,16 +48,24 @@ exports.create = catchAsync(async (req, res) => {
   const { type, title, message, priority, userId } = req.body;
   const gymId = resolveGymId(req);
 
-  const notif = await prisma.notification.create({
-    data: {
-      type:     type.toUpperCase(),
-      title,
-      message,
-      priority: priority ? priority.toUpperCase() : 'LOW',
-      userId:   userId ? Number.parseInt(userId, 10) : null,
-      gymId:    gymId || null,
-    },
-  });
+  const data = {
+    type:     type.toUpperCase(),
+    title,
+    message,
+    priority: priority ? priority.toUpperCase() : 'LOW',
+    userId:   userId ? Number.parseInt(userId, 10) : null,
+    gymId:    gymId || null,
+  };
+
+  let notif;
+  try {
+    notif = await prisma.notification.create({ data });
+  } catch (error) {
+    if (!isUniqueIdConflict(error)) throw error;
+
+    await syncAutoincrementSequence('Notification');
+    notif = await prisma.notification.create({ data });
+  }
 
   success(res, notif, 201, 'Notification created');
 });
