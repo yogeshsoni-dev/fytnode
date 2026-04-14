@@ -65,7 +65,15 @@ export default function Shop() {
   // ── Product management (super admin) ─────────────────────────────────────────
   const [showProductModal, setShowProductModal] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
-  const [productForm, setProductForm] = useState({ name: '', description: '', price: '', stock: '', category: 'protein' });
+  const [productForm, setProductForm] = useState({
+    name: '',
+    description: '',
+    price: '',
+    stock: '',
+    category: 'protein',
+    imageFile: null,
+    imagePreview: '',
+  });
   const [productSaving, setProductSaving] = useState(false);
   const [productSaveError, setProductSaveError] = useState('');
   const [deleteProductId, setDeleteProductId] = useState(null);
@@ -166,7 +174,15 @@ export default function Shop() {
 
   // ── Product form ─────────────────────────────────────────────────────────────
   const openAddProduct = () => {
-    setProductForm({ name: '', description: '', price: '', stock: '', category: 'protein' });
+    setProductForm({
+      name: '',
+      description: '',
+      price: '',
+      stock: '',
+      category: 'protein',
+      imageFile: null,
+      imagePreview: '',
+    });
     setEditProduct(null);
     setProductSaveError('');
     setShowProductModal(true);
@@ -179,10 +195,23 @@ export default function Shop() {
       price: String(product.price),
       stock: String(product.stock),
       category: product.category,
+      imageFile: null,
+      imagePreview: product.imageUrl || '',
     });
     setEditProduct(product);
     setProductSaveError('');
     setShowProductModal(true);
+  };
+
+  const handleProductImageChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    if (!file) {
+      setProductForm((p) => ({ ...p, imageFile: null, imagePreview: editProduct?.imageUrl || '' }));
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setProductForm((p) => ({ ...p, imageFile: file, imagePreview: previewUrl }));
   };
 
   const handleProductSave = async (e) => {
@@ -196,6 +225,7 @@ export default function Shop() {
         price: parseFloat(productForm.price),
         stock: parseInt(productForm.stock, 10),
         category: productForm.category,
+        imageFile: productForm.imageFile,
       };
       if (editProduct) {
         await shopApi.updateProduct(editProduct.id, payload);
@@ -319,7 +349,15 @@ export default function Shop() {
                   <div key={product.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     {/* Product image / icon placeholder */}
                     <div style={{ height: 110, background: meta.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                      <Icon size={40} color={meta.color} opacity={0.6} />
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <Icon size={40} color={meta.color} opacity={0.6} />
+                      )}
                       <span style={{ position: 'absolute', top: 10, right: 10, fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 4, background: meta.bg, color: meta.color, border: `1px solid ${meta.color}40`, letterSpacing: '0.08em' }}>
                         {meta.label}
                       </span>
@@ -525,6 +563,27 @@ export default function Shop() {
               <option value="protein">Gym Proteins</option>
               <option value="equipment">Gym Equipment</option>
             </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Product Image</label>
+            <input
+              className="form-input"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={handleProductImageChange}
+            />
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+              Upload JPG, PNG, WEBP, or GIF up to 5 MB. The image will be stored in the bucket automatically.
+            </div>
+            {productForm.imagePreview && (
+              <div style={{ marginTop: 10, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', background: 'var(--bg-elevated)' }}>
+                <img
+                  src={productForm.imagePreview}
+                  alt="Product preview"
+                  style={{ width: '100%', maxHeight: 180, objectFit: 'cover', display: 'block' }}
+                />
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 6, borderTop: '1px solid var(--border)' }}>
             <button type="button" className="btn btn-secondary" onClick={() => setShowProductModal(false)} disabled={productSaving}>Cancel</button>

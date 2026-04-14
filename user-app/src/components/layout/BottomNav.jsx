@@ -1,10 +1,11 @@
-import { Bot, CalendarCheck, Dumbbell, Utensils } from 'lucide-react';
+import { Bot, CalendarCheck, Dumbbell, User, Utensils } from 'lucide-react';
 
 const TABS = [
   { id: 'attendance', label: 'Attendance', Icon: CalendarCheck },
   { id: 'calories',   label: 'Calories',   Icon: Utensils      },
   { id: 'exercise',   label: 'Exercise',   Icon: Dumbbell      },
   { id: 'chat',       label: 'AI Coach',   Icon: Bot           },
+  { id: 'profile',    label: 'Profile',    Icon: User          },
 ];
 
 export default function BottomNav({ active, onChange }) {

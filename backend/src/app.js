@@ -11,9 +11,28 @@ const errorHandler = require('./middleware/error.middleware');
 const AppError     = require('./utils/AppError');
 
 const app = express();
+const minioImageOrigin = process.env.MINIO_PUBLIC_BASE_URL
+  ? new URL(process.env.MINIO_PUBLIC_BASE_URL).origin
+  : null;
 
 // ─── Security headers ─────────────────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      fontSrc: ["'self'", 'https:', 'data:'],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"],
+      imgSrc: ["'self'", 'data:', 'blob:', ...(minioImageOrigin ? [minioImageOrigin] : [])],
+      objectSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      scriptSrcAttr: ["'none'"],
+      styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+}));
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 // Support a comma-separated list of allowed origins for multi-app setups

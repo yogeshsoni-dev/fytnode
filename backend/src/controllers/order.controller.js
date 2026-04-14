@@ -4,6 +4,7 @@ const prisma = require('../utils/prismaClient');
 const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
 const { success, paginated } = require('../utils/response');
+const { resolveStoredProductImageUrl } = require('../utils/objectStorage');
 
 const ORDER_INCLUDE = {
   user: { select: { id: true, name: true, email: true, gymId: true } },
@@ -13,6 +14,27 @@ const ORDER_INCLUDE = {
     },
   },
 };
+
+async function serializeOrderImages(order) {
+  if (!order) return order;
+
+  return {
+    ...order,
+    items: await Promise.all((order.items || []).map(async (item) => ({
+      ...item,
+      product: item.product
+        ? {
+            ...item.product,
+            imageUrl: await resolveStoredProductImageUrl(item.product.imageUrl),
+          }
+        : null,
+    }))),
+  };
+}
+
+async function serializeOrdersImages(orders) {
+  return Promise.all((orders || []).map(serializeOrderImages));
+}
 
 // ─── GET /api/orders (SUPER_ADMIN sees all; others see own) ───────────────────
 exports.getAll = catchAsync(async (req, res) => {
@@ -35,7 +57,7 @@ exports.getAll = catchAsync(async (req, res) => {
     prisma.order.count({ where }),
   ]);
 
-  paginated(res, orders, total, page, limit);
+  paginated(res, await serializeOrdersImages(orders), total, page, limit);
 });
 
 // ─── GET /api/orders/:id ──────────────────────────────────────────────────────
@@ -51,7 +73,7 @@ exports.getOne = catchAsync(async (req, res, next) => {
     return next(new AppError('Order not found.', 404));
   }
 
-  success(res, order);
+  success(res, await serializeOrderImages(order));
 });
 
 // ─── POST /api/orders ─────────────────────────────────────────────────────────
@@ -115,7 +137,7 @@ exports.create = catchAsync(async (req, res, next) => {
     });
   });
 
-  success(res, order, 201, 'Order placed successfully');
+  success(res, await serializeOrderImages(order), 201, 'Order placed successfully');
 });
 
 // ─── PATCH /api/orders/:id/status (SUPER_ADMIN only) ─────────────────────────
@@ -145,5 +167,5 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
     include: ORDER_INCLUDE,
   });
 
-  success(res, updated);
+  success(res, await serializeOrderImages(updated));
 });
