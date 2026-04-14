@@ -4,6 +4,11 @@ const prisma = require('../utils/prismaClient');
 const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
 const { success, paginated } = require('../utils/response');
+const {
+  serializeProductImage,
+  serializeProducts,
+  uploadProductImageToMinio,
+} = require('../utils/objectStorage');
 const { syncAutoincrementSequence, isUniqueIdConflict } = require('../utils/sequence');
 
 // ─── GET /api/products ────────────────────────────────────────────────────────
@@ -23,7 +28,7 @@ exports.getAll = catchAsync(async (req, res) => {
     prisma.product.count({ where }),
   ]);
 
-  paginated(res, products, total, page, limit);
+  paginated(res, await serializeProducts(products), total, page, limit);
 });
 
 // ─── GET /api/products/:id ────────────────────────────────────────────────────
@@ -32,20 +37,22 @@ exports.getOne = catchAsync(async (req, res, next) => {
     where: { id: Number.parseInt(req.params.id, 10) },
   });
   if (!product || !product.isActive) return next(new AppError('Product not found.', 404));
-  success(res, product);
+  success(res, await serializeProductImage(product));
 });
 
 // ─── POST /api/products (SUPER_ADMIN only) ────────────────────────────────────
 exports.create = catchAsync(async (req, res) => {
   const { name, description, price, stock, category, imageUrl } = req.body;
+  const normalizedCategory = category.toUpperCase();
+  const uploadedImageUrl = req.file ? await uploadProductImageToMinio({ file: req.file, category: normalizedCategory }) : null;
 
   const data = {
     name,
     description,
     price: Number.parseFloat(price),
     stock: Number.parseInt(stock, 10) || 0,
-    category: category.toUpperCase(),
-    imageUrl: imageUrl || null,
+    category: normalizedCategory,
+    imageUrl: uploadedImageUrl || imageUrl || null,
   };
 
   let product;
@@ -59,7 +66,7 @@ exports.create = catchAsync(async (req, res) => {
     product = await prisma.product.create({ data });
   }
 
-  success(res, product, 201, 'Product created');
+  success(res, await serializeProductImage(product), 201, 'Product created');
 });
 
 // ─── PUT /api/products/:id (SUPER_ADMIN only) ─────────────────────────────────
@@ -67,18 +74,20 @@ exports.update = catchAsync(async (req, res, next) => {
   const productId = Number.parseInt(req.params.id, 10);
   const existing = await prisma.product.findUnique({ where: { id: productId } });
   if (!existing) return next(new AppError('Product not found.', 404));
+  const nextCategory = req.body.category != null ? req.body.category.toUpperCase() : existing.category;
 
   const data = {};
   if (req.body.name        != null) data.name        = req.body.name;
   if (req.body.description != null) data.description = req.body.description;
   if (req.body.price       != null) data.price       = Number.parseFloat(req.body.price);
   if (req.body.stock       != null) data.stock       = Number.parseInt(req.body.stock, 10);
-  if (req.body.category    != null) data.category    = req.body.category.toUpperCase();
+  if (req.body.category    != null) data.category    = nextCategory;
   if (req.body.imageUrl    != null) data.imageUrl    = req.body.imageUrl;
   if (req.body.isActive    != null) data.isActive    = Boolean(req.body.isActive);
+  if (req.file) data.imageUrl = await uploadProductImageToMinio({ file: req.file, category: nextCategory });
 
   const product = await prisma.product.update({ where: { id: productId }, data });
-  success(res, product);
+  success(res, await serializeProductImage(product));
 });
 
 // ─── DELETE /api/products/:id (SUPER_ADMIN only) ──────────────────────────────

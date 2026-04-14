@@ -7,6 +7,26 @@ function normalizeProduct(p) {
   };
 }
 
+function toProductPayload(payload) {
+  const normalizedCategory = payload.category?.toUpperCase();
+  if (payload.imageFile) {
+    const formData = new FormData();
+    formData.append('name', payload.name);
+    if (payload.description) formData.append('description', payload.description);
+    formData.append('price', String(payload.price));
+    formData.append('stock', String(payload.stock));
+    formData.append('category', normalizedCategory);
+    formData.append('image', payload.imageFile);
+    return formData;
+  }
+
+  return {
+    ...payload,
+    category: normalizedCategory,
+    imageFile: undefined,
+  };
+}
+
 function normalizeOrder(o) {
   return {
     ...o,
@@ -31,18 +51,12 @@ export const shopApi = {
   },
 
   createProduct: async (payload) => {
-    const res = await client.post('/products', {
-      ...payload,
-      category: payload.category?.toUpperCase(),
-    });
+    const res = await client.post('/products', toProductPayload(payload));
     return normalizeProduct(res.data.data);
   },
 
   updateProduct: async (id, payload) => {
-    const res = await client.put(`/products/${id}`, {
-      ...payload,
-      category: payload.category ? payload.category.toUpperCase() : undefined,
-    });
+    const res = await client.put(`/products/${id}`, toProductPayload(payload));
     return normalizeProduct(res.data.data);
   },
 

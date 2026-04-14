@@ -5,6 +5,7 @@ const { body, param, query } = require('express-validator');
 const ctrl = require('../controllers/product.controller');
 const { protect } = require('../middleware/auth.middleware');
 const { restrictTo } = require('../middleware/rbac.middleware');
+const { uploadProductImage } = require('../middleware/upload.middleware');
 const { validate } = require('../middleware/validate.middleware');
 
 const router = Router();
@@ -22,13 +23,17 @@ router.get('/:id', [param('id').isInt({ gt: 0 })], validate, ctrl.getOne);
 
 // Only SUPER_ADMIN can manage products
 router.post('/', restrictTo('SUPER_ADMIN'), [
+  uploadProductImage,
   body('name').notEmpty().withMessage('Name is required'),
   body('price').isFloat({ gt: 0 }).withMessage('Price must be positive'),
   body('stock').isInt({ min: 0 }).withMessage('Stock must be >= 0'),
   body('category').isIn(['PROTEIN', 'EQUIPMENT']).withMessage('Category must be PROTEIN or EQUIPMENT'),
 ], validate, ctrl.create);
 
-router.put('/:id', restrictTo('SUPER_ADMIN'), [param('id').isInt({ gt: 0 })], validate, ctrl.update);
+router.put('/:id', restrictTo('SUPER_ADMIN'), [
+  uploadProductImage,
+  param('id').isInt({ gt: 0 }),
+], validate, ctrl.update);
 router.delete('/:id', restrictTo('SUPER_ADMIN'), [param('id').isInt({ gt: 0 })], validate, ctrl.remove);
 
 module.exports = router;
