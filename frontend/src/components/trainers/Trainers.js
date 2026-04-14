@@ -302,7 +302,7 @@ export default function Trainers() {
                         {trainer.avatar}
                       </div>
                       <div>
-                        <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', marginBottom: 3 }}>
+                        <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 3 }}>
                           {trainer.name}
                         </h3>
                         <div
@@ -361,7 +361,7 @@ export default function Trainers() {
                         }}
                       >
                         <Icon size={13} color={color} style={{ marginBottom: 5 }} />
-                        <div style={{ fontSize: 17, fontWeight: 900, color: '#fff' }}>{value}</div>
+                        <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--text-primary)' }}>{value}</div>
                         <div
                           style={{
                             fontSize: 10,

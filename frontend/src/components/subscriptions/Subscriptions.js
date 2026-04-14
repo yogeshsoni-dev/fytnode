@@ -324,7 +324,7 @@ export default function Subscriptions() {
                     {plan.name.toUpperCase()} PLAN
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                    <span style={{ fontSize: 36, fontWeight: 900, color: '#fff', letterSpacing: '-1px' }}>
+                    <span style={{ fontSize: 36, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-1px' }}>
                       ${plan.price}
                     </span>
                     <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
@@ -373,7 +373,7 @@ export default function Subscriptions() {
                     >
                       Monthly Revenue
                     </div>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-primary)' }}>
                       ${planRevenue.toLocaleString()}
                     </div>
                   </div>

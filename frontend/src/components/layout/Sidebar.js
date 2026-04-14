@@ -145,7 +145,7 @@ const S = {
   brandName: {
     fontSize: 17,
     fontWeight: 900,
-    color: '#fff',
+    color: 'var(--text-primary)',
     letterSpacing: '0.18em',
     marginRight: 6,
   },
@@ -181,7 +181,7 @@ const S = {
   userName: {
     fontSize: 13,
     fontWeight: 700,
-    color: '#fff',
+    color: 'var(--text-primary)',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -224,7 +224,7 @@ const S = {
   },
   navItemActive: {
     background: 'var(--red-faint)',
-    color: '#fff',
+    color: 'var(--red)',
     borderLeft: '2px solid var(--red)',
     paddingLeft: 10,
   },

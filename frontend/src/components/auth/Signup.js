@@ -14,8 +14,6 @@ export default function Signup() {
     password: '',
     confirmPassword: '',
     phone: '',
-    age: '',
-    address: '',
   });
   const [errors, setErrors] = useState({});
   const [showPass, setShowPass] = useState(false);
@@ -36,7 +34,6 @@ export default function Signup() {
     else if (form.password.length < 6) nextErrors.password = 'Minimum 6 characters';
     if (!form.confirmPassword) nextErrors.confirmPassword = 'Please confirm your password';
     else if (form.confirmPassword !== form.password) nextErrors.confirmPassword = 'Passwords do not match';
-    if (form.age && (isNaN(form.age) || +form.age < 10 || +form.age > 120)) nextErrors.age = 'Age must be between 10 and 120';
     return nextErrors;
   };
 
@@ -57,8 +54,6 @@ export default function Signup() {
         email: form.email.trim(),
         password: form.password,
         phone: form.phone.trim() || undefined,
-        age: form.age ? parseInt(form.age, 10) : undefined,
-        address: form.address.trim() || undefined,
       });
       navigate('/dashboard');
     } catch (error) {
@@ -87,21 +82,21 @@ export default function Signup() {
             <span style={S.logoText}>FYTNODES</span>
           </div>
           <div style={S.heroText}>
-            <p style={S.heroEye}>START YOUR MEMBERSHIP</p>
+            <p style={S.heroEye}>GYM MANAGEMENT PORTAL</p>
             <h1 style={S.heroHeading}>
-              JOIN THE
+              MANAGE WITH
               <br />
-              <span style={{ color: 'var(--red)' }}>MOVEMENT.</span>
+              <span style={{ color: 'var(--red)' }}>POWER.</span>
             </h1>
             <p style={S.heroDesc}>
-              Create your member account, track attendance, and manage your subscription from one place.
+              Register your gym management account to access the full dashboard — members, trainers, attendance, and more.
             </p>
           </div>
           <div style={S.featureList}>
             {[
-              'Instant member account creation',
-              'Attendance history and dashboard access',
-              'Subscription visibility after login',
+              'Full admin dashboard access',
+              'Manage members, trainers & subscriptions',
+              'Track attendance and performance',
             ].map((item) => (
               <div key={item} style={S.featureItem}>
                 <div style={S.featureDot} />
@@ -117,8 +112,8 @@ export default function Signup() {
       <div style={S.formPanel}>
         <div style={S.formCard}>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={S.formHeading}>Create your account</h2>
-            <p style={S.formSubheading}>Sign up as a member and get started right away</p>
+            <h2 style={S.formHeading}>Create admin account</h2>
+            <p style={S.formSubheading}>For gym owners and management staff only</p>
           </div>
 
           {authErr && (
@@ -175,7 +170,7 @@ export default function Signup() {
                     style={{ paddingRight: 44 }}
                     {...field('password')}
                   />
-                  <button type="button" onClick={() => setShowPass((value) => !value)} style={S.eyeBtn} tabIndex={-1}>
+                  <button type="button" onClick={() => setShowPass((v) => !v)} style={S.eyeBtn} tabIndex={-1}>
                     {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
@@ -199,7 +194,7 @@ export default function Signup() {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowConfirmPass((value) => !value)}
+                    onClick={() => setShowConfirmPass((v) => !v)}
                     style={S.eyeBtn}
                     tabIndex={-1}
                   >
@@ -215,23 +210,6 @@ export default function Signup() {
               </div>
             </div>
 
-            <div className="grid-2">
-              <div className="form-group">
-                <label className="form-label">Age</label>
-                <input className="form-input" type="number" placeholder="25" {...field('age')} />
-                {errors.age && (
-                  <span className="form-error">
-                    <AlertCircle size={11} />
-                    {errors.age}
-                  </span>
-                )}
-              </div>
-              <div className="form-group">
-                <label className="form-label">Address</label>
-                <input className="form-input" placeholder="123 Main St" autoComplete="street-address" {...field('address')} />
-              </div>
-            </div>
-
             <button
               type="submit"
               className="btn btn-primary"
@@ -242,7 +220,7 @@ export default function Signup() {
                 <span style={S.spinner} />
               ) : (
                 <>
-                  <UserPlus size={15} /> Create Account
+                  <UserPlus size={15} /> Create Admin Account
                 </>
               )}
             </button>
@@ -327,7 +305,7 @@ const S = {
   },
   formPanel: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' },
   formCard: { width: '100%', maxWidth: 480 },
-  formHeading: { fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px', marginBottom: 6 },
+  formHeading: { fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.4px', marginBottom: 6 },
   formSubheading: { fontSize: 14, color: 'var(--text-muted)' },
   errBanner: {
     display: 'flex',

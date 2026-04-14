@@ -156,7 +156,7 @@ function MetricRow({ label, value, max, color = 'var(--red)' }) {
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
         <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>{label}</span>
-        <span style={{ fontSize: 12, fontWeight: 800, color: '#fff' }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>
           {value} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>/ {max}</span>
         </span>
       </div>
@@ -479,7 +479,7 @@ export default function Dashboard() {
             <div style={S.peakNote}>
               <Zap size={11} color="var(--red)" />
               <span>
-                Peak: <strong style={{ color: '#fff' }}>{weeklyData.find((day) => day.count === peakVal)?.day} ({peakVal} visits)</strong>
+                Peak: <strong style={{ color: 'var(--text-primary)' }}>{weeklyData.find((day) => day.count === peakVal)?.day} ({peakVal} visits)</strong>
               </span>
             </div>
           )}
@@ -628,7 +628,7 @@ export default function Dashboard() {
                       style={{
                         fontSize: 12,
                         fontWeight: 700,
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -684,7 +684,7 @@ const S = {
     textTransform: 'uppercase',
     marginBottom: 5,
   },
-  bannerTitle: { fontSize: 16, fontWeight: 800, color: '#fff', letterSpacing: '-0.2px' },
+  bannerTitle: { fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.2px' },
   bannerStats: { display: 'flex', gap: 10 },
   bannerPill: {
     display: 'flex',
@@ -703,7 +703,7 @@ const S = {
     textTransform: 'uppercase',
     letterSpacing: '0.1em',
   },
-  bannerPillValue: { fontSize: 15, fontWeight: 800, color: '#fff', marginTop: 2 },
+  bannerPillValue: { fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', marginTop: 2 },
   chartHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 },
   legendRow: { display: 'flex', gap: 14, alignItems: 'center' },
   peakNote: { display: 'flex', alignItems: 'center', gap: 5, marginTop: 10, fontSize: 11, color: 'var(--text-muted)' },

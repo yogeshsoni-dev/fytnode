@@ -278,6 +278,98 @@ exports.getStats = catchAsync(async (req, res) => {
   });
 });
 
+// ─── GET /api/attendance/member/:memberId/streak ─────────────────────────────
+/**
+ * Returns the current attendance streak for a member.
+ *
+ * Query params:
+ *   days  – how far back to look (default 30, max 365).
+ *           The streak is the longest unbroken run of consecutive calendar
+ *           days ending on today (or yesterday if the member hasn't checked
+ *           in yet today), within that window.
+ */
+exports.getStreak = catchAsync(async (req, res, next) => {
+  const memberId = parseInt(req.params.memberId, 10);
+
+  const member = await prisma.member.findUnique({
+    where: { id: memberId },
+    include: { user: { select: { id: true, name: true, email: true } } },
+  });
+  if (!member) return next(new AppError('Member not found.', 404));
+
+  // Members can only view their own streak
+  if (req.user.role === 'MEMBER' && member.userId !== req.user.id) {
+    return next(new AppError('You can only view your own attendance streak.', 403));
+  }
+
+  const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 30));
+
+  const today = toDateOnly();
+  const from  = toDateOnly(new Date(Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate() - (days - 1),
+  )));
+
+  const records = await prisma.attendance.findMany({
+    where: { memberId, date: { gte: from, lte: today } },
+    select: { date: true },
+    orderBy: { date: 'desc' },
+  });
+
+  // Build a Set of ISO date strings that have attendance
+  const attended = new Set(records.map((r) => toDateOnly(r.date).toISOString()));
+
+  // Determine the anchor day: today if attended, else yesterday
+  const todayISO     = today.toISOString();
+  const yesterday    = toDateOnly(new Date(Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate() - 1,
+  )));
+  const yesterdayISO = yesterday.toISOString();
+
+  let anchor;
+  if (attended.has(todayISO)) {
+    anchor = today;
+  } else if (attended.has(yesterdayISO)) {
+    anchor = yesterday;
+  } else {
+    // No attendance today or yesterday → streak is 0
+    return success(res, {
+      memberId,
+      member: { name: member.user.name, email: member.user.email },
+      streak: 0,
+      periodDays: days,
+      from: from.toISOString().split('T')[0],
+      to: today.toISOString().split('T')[0],
+    });
+  }
+
+  // Walk backwards from anchor, counting consecutive attended days
+  let streak = 0;
+  let cursor = new Date(anchor);
+
+  while (cursor >= from) {
+    if (!attended.has(cursor.toISOString())) break;
+    streak++;
+    cursor = toDateOnly(new Date(Date.UTC(
+      cursor.getUTCFullYear(),
+      cursor.getUTCMonth(),
+      cursor.getUTCDate() - 1,
+    )));
+  }
+
+  success(res, {
+    memberId,
+    member: { name: member.user.name, email: member.user.email },
+    streak,
+    periodDays: days,
+    from: from.toISOString().split('T')[0],
+    to: today.toISOString().split('T')[0],
+  });
+});
+
 // ─── DELETE /api/attendance/:id (admin only) ──────────────────────────────────
 exports.remove = catchAsync(async (req, res, next) => {
   const attId = parseInt(req.params.id, 10);

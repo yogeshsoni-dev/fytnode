@@ -35,7 +35,7 @@ export default function MemberDetail({ member }) {
           {member.avatar}
         </div>
         <div style={{ flex: 1 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 5 }}>{member.name}</h3>
+          <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 5 }}>{member.name}</h3>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className={`badge badge-${member.status}`}>{member.status}</span>
             {plan && <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 4, background: `${plan.color}20`, color: plan.color }}>{plan.name} Plan</span>}
@@ -72,7 +72,7 @@ export default function MemberDetail({ member }) {
             ].map(({ label, value }) => (
               <div key={label} style={{ padding: '14px', textAlign: 'center', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>{label}</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{value}</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{value}</div>
               </div>
             ))}
           </div>

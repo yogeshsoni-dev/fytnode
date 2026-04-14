@@ -44,6 +44,17 @@ router.get(
 // GET /api/attendance/today
 router.get('/today', restrictTo('ADMIN', 'TRAINER'), attCtrl.getToday);
 
+// GET /api/attendance/member/:memberId/streak
+router.get(
+  '/member/:memberId/streak',
+  [
+    param('memberId').isInt({ gt: 0 }).withMessage('Invalid member ID'),
+    query('days').optional().isInt({ min: 1, max: 365 }).withMessage('days must be 1–365'),
+  ],
+  validate,
+  attCtrl.getStreak
+);
+
 // GET /api/attendance/member/:memberId
 router.get(
   '/member/:memberId',

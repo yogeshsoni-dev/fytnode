@@ -1,14 +1,9 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { AlertCircle, Eye, EyeOff, Zap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { getErrorMessage } from '../../utils/formatters';
 
-const DEMO_CREDS = [
-  { role: 'Admin', email: 'admin@gym.com', password: 'admin123', desc: 'Full access' },
-  { role: 'Trainer', email: 'trainer@gym.com', password: 'trainer123', desc: 'Staff view' },
-  { role: 'Member', email: 'member@gym.com', password: 'member123', desc: 'Member view' },
-];
 
 export default function Login() {
   const { state, login } = useApp();
@@ -52,12 +47,6 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillDemo = (credentials) => {
-    setForm({ email: credentials.email, password: credentials.password });
-    setErrors({});
-    setAuthErr('');
   };
 
   const field = (key) => ({
@@ -177,28 +166,6 @@ export default function Login() {
             </button>
           </form>
 
-          <p style={S.switchText}>
-            New here?{' '}
-            <Link to="/signup" style={S.switchLink}>
-              Create an account
-            </Link>
-          </p>
-
-          <div style={S.demoSection}>
-            <div style={S.demoHeader}>
-              <div style={S.demoDivLine} />
-              <span style={S.demoLabel}>Quick Demo Access</span>
-              <div style={S.demoDivLine} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              {DEMO_CREDS.map((credentials) => (
-                <button key={credentials.role} onClick={() => fillDemo(credentials)} style={S.demoBtn}>
-                  <span style={S.demoRole}>{credentials.role}</span>
-                  <span style={S.demoDesc}>{credentials.desc}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -266,7 +233,7 @@ const S = {
   },
   formPanel: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' },
   formCard: { width: '100%', maxWidth: 400 },
-  formHeading: { fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px', marginBottom: 6 },
+  formHeading: { fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.4px', marginBottom: 6 },
   formSubheading: { fontSize: 14, color: 'var(--text-muted)' },
   errBanner: {
     display: 'flex',
@@ -313,22 +280,4 @@ const S = {
     textDecoration: 'none',
     fontWeight: 700,
   },
-  demoSection: { marginTop: 32 },
-  demoHeader: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 },
-  demoDivLine: { flex: 1, height: 1, background: 'var(--border)' },
-  demoLabel: { fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap' },
-  demoBtn: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: '11px 8px',
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-sm)',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    gap: 3,
-  },
-  demoRole: { fontSize: 12, fontWeight: 800, color: 'var(--red)', textTransform: 'uppercase', letterSpacing: '0.06em' },
-  demoDesc: { fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 },
 };

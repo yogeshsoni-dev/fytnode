@@ -90,7 +90,7 @@ async function buildAuthResponse(userId) {
 }
 
 exports.signup = catchAsync(async (req, res, next) => {
-  const { name, email, password, phone, age, address } = req.body;
+  const { name, email, password } = req.body;
   const normalizedEmail = email.toLowerCase().trim();
 
   const existing = await prisma.user.findUnique({
@@ -103,28 +103,14 @@ exports.signup = catchAsync(async (req, res, next) => {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  const createdUser = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        email: normalizedEmail,
-        password: passwordHash,
-        name: name.trim(),
-        role: 'MEMBER',
-      },
-      select: { id: true },
-    });
-
-    await tx.member.create({
-      data: {
-        userId: user.id,
-        phone: phone?.trim() || undefined,
-        age: age != null && age !== '' ? parseInt(age, 10) : undefined,
-        address: address?.trim() || undefined,
-        status: 'ACTIVE',
-      },
-    });
-
-    return user;
+  const createdUser = await prisma.user.create({
+    data: {
+      email: normalizedEmail,
+      password: passwordHash,
+      name: name.trim(),
+      role: 'ADMIN',
+    },
+    select: { id: true },
   });
 
   const authData = await buildAuthResponse(createdUser.id);

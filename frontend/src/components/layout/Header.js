@@ -67,7 +67,7 @@ const S = {
   left: { display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 },
   titleWrap: {},
   title: {
-    fontSize: 17, fontWeight: 800, color: '#fff',
+    fontSize: 17, fontWeight: 800, color: 'var(--text-primary)',
     letterSpacing: '-0.3px', lineHeight: 1.2,
   },
   sub: { fontSize: 11, color: 'var(--text-muted)', marginTop: 1, fontWeight: 500 },

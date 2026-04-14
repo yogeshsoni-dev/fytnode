@@ -4,38 +4,38 @@
 
 :root {
   /* Core palette */
-  --black:        #050505;
-  --bg:           #0a0a0a;
-  --bg-card:      #111111;
-  --bg-card2:     #181818;
-  --bg-elevated:  #1f1f1f;
-  --border:       #1e1e1e;
-  --border-soft:  #252525;
-  --border-mid:   #2e2e2e;
+  --black:        #ffffff;
+  --bg:           #f4f4f5;
+  --bg-card:      #ffffff;
+  --bg-card2:     #f0f0f1;
+  --bg-elevated:  #e8e8ea;
+  --border:       #e4e4e7;
+  --border-soft:  #d4d4d8;
+  --border-mid:   #a1a1aa;
 
   /* Accent — Power Blue */
   --red:          #2563eb;
   --red-dark:     #1d4ed8;
   --red-light:    #3b82f6;
-  --red-faint:    rgba(37, 99, 235, 0.08);
+  --red-faint:    rgba(37, 99, 235, 0.10);
   --red-glow:     rgba(37, 99, 235, 0.25);
-  --red-glow-sm:  rgba(37, 99, 235, 0.12);
+  --red-glow-sm:  rgba(37, 99, 235, 0.15);
 
   /* Semantic */
-  --success:      #22c55e;
-  --success-faint:rgba(34, 197, 94, 0.1);
-  --warning:      #f59e0b;
-  --warning-faint:rgba(245, 158, 11, 0.1);
-  --danger:       #ef4444;
-  --danger-faint: rgba(239, 68, 68, 0.1);
-  --info:         #3b82f6;
-  --info-faint:   rgba(59, 130, 246, 0.1);
+  --success:      #16a34a;
+  --success-faint:rgba(22, 163, 74, 0.10);
+  --warning:      #d97706;
+  --warning-faint:rgba(217, 119, 6, 0.10);
+  --danger:       #dc2626;
+  --danger-faint: rgba(220, 38, 38, 0.10);
+  --info:         #2563eb;
+  --info-faint:   rgba(37, 99, 235, 0.10);
 
   /* Typography */
-  --text-primary:   #ffffff;
-  --text-secondary: #a1a1aa;
-  --text-muted:     #52525b;
-  --text-faint:     #3f3f46;
+  --text-primary:   #09090b;
+  --text-secondary: #52525b;
+  --text-muted:     #71717a;
+  --text-faint:     #a1a1aa;
 
   /* Layout */
   --sidebar-width:  260px;
@@ -49,9 +49,9 @@
   --radius-xl: 20px;
 
   /* Shadows */
-  --shadow-sm:   0 2px 8px rgba(0, 0, 0, 0.5);
-  --shadow:      0 4px 20px rgba(0, 0, 0, 0.6);
-  --shadow-lg:   0 8px 40px rgba(0, 0, 0, 0.7);
+  --shadow-sm:   0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow:      0 4px 20px rgba(0, 0, 0, 0.10);
+  --shadow-lg:   0 8px 40px rgba(0, 0, 0, 0.14);
   --shadow-red:  0 4px 24px var(--red-glow);
   --shadow-red-sm: 0 2px 12px var(--red-glow-sm);
 }
@@ -384,7 +384,7 @@ td {
 tr:last-child td { border-bottom: none; }
 
 tbody tr { transition: background 0.15s; }
-tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+tbody tr:hover { background: rgba(0, 0, 0, 0.02); }
 
 /* ─── Avatar ─────────────────────────────────────────────────────────────── */
 .avatar {
