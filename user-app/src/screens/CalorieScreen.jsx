@@ -8,6 +8,7 @@ import {
   Trash2,
   UtensilsCrossed,
   X,
+  Pencil,
 } from 'lucide-react';
 import { caloriesApi } from '../api/calories.api';
 
@@ -35,6 +36,13 @@ export default function CalorieScreen() {
   // Daily summary
   const [summary, setSummary]         = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
+
+  // Manual entry
+  const [manualCalories, setManualCalories] = useState('');
+  const [manualBurned, setManualBurned]     = useState('');
+  const [manualMealType, setManualMealType] = useState('lunch');
+  const [manualLogging, setManualLogging]   = useState(false);
+  const [manualSuccess, setManualSuccess]   = useState(false);
 
   // Feedback
   const [error, setError]     = useState('');
@@ -119,6 +127,35 @@ export default function CalorieScreen() {
       setError(e?.response?.data?.error || 'Failed to log meal. Try again.');
     } finally {
       setLogging(false);
+    }
+  };
+
+  const handleManualLog = async () => {
+    const intake  = parseInt(manualCalories, 10) || 0;
+    const burned  = parseInt(manualBurned,   10) || 0;
+    if (intake === 0 && burned === 0) return;
+    setManualLogging(true);
+    setError('');
+    try {
+      if (intake > 0) {
+        await caloriesApi.logIntake({
+          meal_type:      manualMealType,
+          total_calories: intake,
+          food_details:   [],
+        });
+      }
+      if (burned > 0) {
+        await caloriesApi.logBurned({ calories_burned: burned });
+      }
+      setManualSuccess(true);
+      setManualCalories('');
+      setManualBurned('');
+      await loadSummary();
+      setTimeout(() => setManualSuccess(false), 2000);
+    } catch (e) {
+      setError(e?.response?.data?.error || 'Failed to log. Try again.');
+    } finally {
+      setManualLogging(false);
     }
   };
 
@@ -319,6 +356,87 @@ export default function CalorieScreen() {
           </div>
         </div>
       )}
+
+      {/* Manual Entry */}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-4 space-y-4">
+        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide flex items-center gap-2">
+          <Pencil className="w-4 h-4" />
+          Log Manually
+        </h3>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+              Intake (kcal)
+            </label>
+            <input
+              type="number"
+              min="0"
+              placeholder="e.g. 500"
+              value={manualCalories}
+              onChange={(e) => setManualCalories(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+              Burned (kcal)
+            </label>
+            <input
+              type="number"
+              min="0"
+              placeholder="e.g. 300"
+              value={manualBurned}
+              onChange={(e) => setManualBurned(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+            />
+          </div>
+        </div>
+
+        {/* Meal type — only relevant when intake is filled */}
+        {manualCalories > 0 && (
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">
+              Meal Type
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {MEAL_TYPES.map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setManualMealType(type)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium capitalize transition-colors ${
+                    manualMealType === type
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {manualSuccess && (
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-xl px-4 py-3">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            Logged successfully!
+          </div>
+        )}
+
+        <button
+          onClick={handleManualLog}
+          disabled={manualLogging || (!manualCalories && !manualBurned)}
+          className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-40"
+        >
+          {manualLogging ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Plus className="w-5 h-5" />
+          )}
+          {manualLogging ? 'Logging…' : 'Log Entry'}
+        </button>
+      </div>
 
       {/* Hidden file input — accept images, capture camera on mobile */}
       <input

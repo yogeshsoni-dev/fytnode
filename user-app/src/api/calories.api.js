@@ -18,6 +18,13 @@ export const caloriesApi = {
     return data;
   },
 
+  // Log calories burned manually
+  logBurned: async (payload) => {
+    // payload: { calories_burned }
+    const { data } = await aiClient.post('/log-burn/', payload);
+    return data;
+  },
+
   // Get today's daily summary
   getDailySummary: async (date) => {
     const params = date ? { date } : {};
