@@ -4,6 +4,7 @@ const prisma = require('../utils/prismaClient');
 const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
 const { success, paginated } = require('../utils/response');
+const { resolveGymId } = require('../middleware/rbac.middleware');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -108,6 +109,10 @@ exports.getAll = catchAsync(async (req, res) => {
 
   const where = {};
 
+  // Gym scoping via member relationship
+  const gymId = resolveGymId(req);
+  if (gymId) where.member = { gymId };
+
   // Date range filter
   if (req.query.from || req.query.to) {
     where.date = {};
@@ -146,7 +151,10 @@ exports.getAll = catchAsync(async (req, res) => {
 // ─── GET /api/attendance/today ────────────────────────────────────────────────
 exports.getToday = catchAsync(async (req, res) => {
   const today = toDateOnly();
+  const gymId = resolveGymId(req);
   const where = { date: today };
+
+  if (gymId) where.member = { gymId };
 
   if (req.user.role === 'TRAINER') {
     const trainer = await prisma.trainer.findUnique({ where: { userId: req.user.id } });
@@ -209,6 +217,7 @@ exports.getMemberHistory = catchAsync(async (req, res, next) => {
 exports.getStats = catchAsync(async (req, res) => {
   const now  = new Date();
   const days = parseInt(req.query.days) || 7;
+  const gymId = resolveGymId(req);
 
   // Build date buckets for the last N days
   const buckets = [];
@@ -221,8 +230,11 @@ exports.getStats = catchAsync(async (req, res) => {
   const from = buckets[0];
   const to   = buckets[buckets.length - 1];
 
+  const statsWhere = { date: { gte: from, lte: to } };
+  if (gymId) statsWhere.member = { gymId };
+
   const records = await prisma.attendance.findMany({
-    where: { date: { gte: from, lte: to } },
+    where: statsWhere,
     select: { date: true, checkIn: true, checkOut: true },
   });
 

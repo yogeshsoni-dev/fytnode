@@ -3,6 +3,7 @@
 const { Router } = require('express');
 
 const authRoutes         = require('./auth.routes');
+const gymRoutes          = require('./gym.routes');
 const userRoutes         = require('./user.routes');
 const memberRoutes       = require('./member.routes');
 const attendanceRoutes   = require('./attendance.routes');
@@ -13,6 +14,7 @@ const notificationRoutes = require('./notification.routes');
 const router = Router();
 
 router.use('/auth',          authRoutes);
+router.use('/gyms',          gymRoutes);
 router.use('/users',         userRoutes);
 router.use('/members',       memberRoutes);
 router.use('/attendance',    attendanceRoutes);

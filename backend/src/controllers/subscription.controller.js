@@ -4,6 +4,7 @@ const prisma = require('../utils/prismaClient');
 const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
 const { success, paginated } = require('../utils/response');
+const { resolveGymId } = require('../middleware/rbac.middleware');
 
 const SUB_INCLUDE = {
   member: { include: { user: { select: { id: true, name: true, email: true } } } },
@@ -12,16 +13,20 @@ const SUB_INCLUDE = {
 
 // ─── GET /api/subscriptions ───────────────────────────────────────────────────
 exports.getAll = catchAsync(async (req, res) => {
-  const page  = Math.max(1, parseInt(req.query.page)  || 1);
-  const limit = Math.min(100, parseInt(req.query.limit) || 20);
+  const page  = Math.max(1, Number.parseInt(req.query.page, 10)  || 1);
+  const limit = Math.min(100, Number.parseInt(req.query.limit, 10) || 20);
   const skip  = (page - 1) * limit;
 
   const where = {};
+
+  const gymId = resolveGymId(req);
+  if (gymId) where.member = { gymId };
+
   if (req.query.status)   where.status   = req.query.status.toUpperCase();
-  if (req.query.memberId) where.memberId = parseInt(req.query.memberId, 10);
-  if (req.query.planId)   where.planId   = parseInt(req.query.planId, 10);
+  if (req.query.memberId) where.memberId = Number.parseInt(req.query.memberId, 10);
+  if (req.query.planId)   where.planId   = Number.parseInt(req.query.planId, 10);
   if (req.query.search) {
-    where.member = { user: { name: { contains: req.query.search, mode: 'insensitive' } } };
+    where.member = { ...where.member, user: { name: { contains: req.query.search, mode: 'insensitive' } } };
   }
 
   const [subs, total] = await Promise.all([
@@ -44,10 +49,16 @@ exports.getPlans = catchAsync(async (_req, res) => {
 // ─── GET /api/subscriptions/:id ───────────────────────────────────────────────
 exports.getOne = catchAsync(async (req, res, next) => {
   const sub = await prisma.subscription.findUnique({
-    where: { id: parseInt(req.params.id, 10) },
+    where: { id: Number.parseInt(req.params.id, 10) },
     include: SUB_INCLUDE,
   });
   if (!sub) return next(new AppError('Subscription not found.', 404));
+
+  const gymId = resolveGymId(req);
+  if (gymId && sub.member?.gymId !== gymId) {
+    return next(new AppError('Subscription not found.', 404));
+  }
+
   success(res, sub);
 });
 
@@ -55,8 +66,17 @@ exports.getOne = catchAsync(async (req, res, next) => {
 exports.create = catchAsync(async (req, res, next) => {
   const { memberId, planId, startDate, status, amountPaid } = req.body;
 
-  const plan = await prisma.subscriptionPlan.findUnique({ where: { id: parseInt(planId, 10) } });
+  const plan = await prisma.subscriptionPlan.findUnique({ where: { id: Number.parseInt(planId, 10) } });
   if (!plan) return next(new AppError('Subscription plan not found.', 404));
+
+  // Ensure member belongs to same gym
+  const gymId = resolveGymId(req);
+  if (gymId) {
+    const member = await prisma.member.findUnique({ where: { id: Number.parseInt(memberId, 10) } });
+    if (!member || member.gymId !== gymId) {
+      return next(new AppError('Member not found in your gym.', 404));
+    }
+  }
 
   const start = new Date(startDate);
   const end   = new Date(startDate);
@@ -64,12 +84,12 @@ exports.create = catchAsync(async (req, res, next) => {
 
   const sub = await prisma.subscription.create({
     data: {
-      memberId:  parseInt(memberId, 10),
-      planId:    parseInt(planId, 10),
-      startDate: start,
-      endDate:   end,
-      status:    status ? status.toUpperCase() : 'ACTIVE',
-      amountPaid: amountPaid != null ? parseFloat(amountPaid) : plan.price,
+      memberId:   Number.parseInt(memberId, 10),
+      planId:     Number.parseInt(planId, 10),
+      startDate:  start,
+      endDate:    end,
+      status:     status ? status.toUpperCase() : 'ACTIVE',
+      amountPaid: amountPaid != null ? Number.parseFloat(amountPaid) : plan.price,
     },
     include: SUB_INCLUDE,
   });
@@ -79,13 +99,18 @@ exports.create = catchAsync(async (req, res, next) => {
 
 // ─── PUT /api/subscriptions/:id ───────────────────────────────────────────────
 exports.update = catchAsync(async (req, res, next) => {
-  const subId = parseInt(req.params.id, 10);
-  const existing = await prisma.subscription.findUnique({ where: { id: subId } });
+  const subId = Number.parseInt(req.params.id, 10);
+  const existing = await prisma.subscription.findUnique({ where: { id: subId }, include: { member: true } });
   if (!existing) return next(new AppError('Subscription not found.', 404));
+
+  const gymId = resolveGymId(req);
+  if (gymId && existing.member?.gymId !== gymId) {
+    return next(new AppError('Subscription not found.', 404));
+  }
 
   const data = {};
   if (req.body.status     != null) data.status     = req.body.status.toUpperCase();
-  if (req.body.amountPaid != null) data.amountPaid = parseFloat(req.body.amountPaid);
+  if (req.body.amountPaid != null) data.amountPaid = Number.parseFloat(req.body.amountPaid);
   if (req.body.startDate  != null) {
     const plan = await prisma.subscriptionPlan.findUnique({ where: { id: existing.planId } });
     data.startDate = new Date(req.body.startDate);
@@ -93,7 +118,7 @@ exports.update = catchAsync(async (req, res, next) => {
     data.endDate.setMonth(data.endDate.getMonth() + (plan?.duration || 1));
   }
   if (req.body.planId != null) {
-    const plan = await prisma.subscriptionPlan.findUnique({ where: { id: parseInt(req.body.planId, 10) } });
+    const plan = await prisma.subscriptionPlan.findUnique({ where: { id: Number.parseInt(req.body.planId, 10) } });
     if (!plan) return next(new AppError('Plan not found.', 404));
     data.planId = plan.id;
     if (!req.body.startDate) {
@@ -107,10 +132,16 @@ exports.update = catchAsync(async (req, res, next) => {
 });
 
 // ─── GET /api/subscriptions/stats ─────────────────────────────────────────────
-exports.getStats = catchAsync(async (_req, res) => {
+exports.getStats = catchAsync(async (req, res) => {
+  const gymId = resolveGymId(req);
+  const memberWhere = gymId ? { gymId } : {};
+
   const [plans, subs] = await Promise.all([
     prisma.subscriptionPlan.findMany(),
-    prisma.subscription.findMany({ include: { plan: true } }),
+    prisma.subscription.findMany({
+      where: { member: memberWhere },
+      include: { plan: true },
+    }),
   ]);
 
   const revenue = subs

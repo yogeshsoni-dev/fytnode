@@ -40,10 +40,15 @@ const AUTH_USER_SELECT = {
   name: true,
   role: true,
   isActive: true,
+  gymId: true,
   createdAt: true,
+  gym: {
+    select: { id: true, name: true, isActive: true },
+  },
   member: {
     select: {
       id: true,
+      gymId: true,
       phone: true,
       age: true,
       address: true,
@@ -55,6 +60,7 @@ const AUTH_USER_SELECT = {
   trainer: {
     select: {
       id: true,
+      gymId: true,
       phone: true,
       specialization: true,
       experience: true,

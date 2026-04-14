@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import {
   Bell,
+  Building2,
   CalendarCheck,
   CreditCard,
   LayoutDashboard,
@@ -12,24 +13,27 @@ import {
 } from 'lucide-react';
 
 const NAV = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['ADMIN', 'TRAINER', 'MEMBER'] },
-  { to: '/members', icon: Users, label: 'Members', roles: ['ADMIN', 'TRAINER'] },
-  { to: '/attendance', icon: CalendarCheck, label: 'Attendance', roles: ['ADMIN', 'TRAINER', 'MEMBER'] },
-  { to: '/subscriptions', icon: CreditCard, label: 'Subscriptions', roles: ['ADMIN', 'TRAINER', 'MEMBER'] },
-  { to: '/trainers', icon: UserCheck, label: 'Trainers', roles: ['ADMIN'] },
-  { to: '/notifications', icon: Bell, label: 'Notifications', roles: ['ADMIN', 'TRAINER', 'MEMBER'] },
+  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard',     roles: ['SUPER_ADMIN', 'ADMIN', 'TRAINER', 'MEMBER'] },
+  { to: '/gyms',          icon: Building2,       label: 'Gyms',          roles: ['SUPER_ADMIN'] },
+  { to: '/members',       icon: Users,           label: 'Members',       roles: ['ADMIN', 'TRAINER'] },
+  { to: '/attendance',    icon: CalendarCheck,   label: 'Attendance',    roles: ['ADMIN', 'TRAINER', 'MEMBER'] },
+  { to: '/subscriptions', icon: CreditCard,      label: 'Subscriptions', roles: ['ADMIN', 'TRAINER', 'MEMBER'] },
+  { to: '/trainers',      icon: UserCheck,       label: 'Trainers',      roles: ['ADMIN'] },
+  { to: '/notifications', icon: Bell,            label: 'Notifications', roles: ['ADMIN', 'TRAINER', 'MEMBER'] },
 ];
 
 const ROLE_BADGE = {
-  ADMIN: { bg: 'rgba(37,99,235,0.15)', color: 'var(--red)', label: 'ADMIN' },
-  TRAINER: { bg: 'rgba(245,158,11,0.12)', color: 'var(--warning)', label: 'TRAINER' },
-  MEMBER: { bg: 'rgba(34,197,94,0.1)', color: 'var(--success)', label: 'MEMBER' },
+  SUPER_ADMIN: { bg: 'rgba(168,85,247,0.15)', color: '#a855f7', label: 'SUPER ADMIN' },
+  ADMIN:       { bg: 'rgba(37,99,235,0.15)',  color: 'var(--red)', label: 'ADMIN' },
+  TRAINER:     { bg: 'rgba(245,158,11,0.12)', color: 'var(--warning)', label: 'TRAINER' },
+  MEMBER:      { bg: 'rgba(34,197,94,0.1)',   color: 'var(--success)', label: 'MEMBER' },
 };
 
 const AVATAR_COLORS = {
-  ADMIN: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-  TRAINER: 'linear-gradient(135deg, #f59e0b, #b45309)',
-  MEMBER: 'linear-gradient(135deg, #22c55e, #15803d)',
+  SUPER_ADMIN: 'linear-gradient(135deg, #a855f7, #7c3aed)',
+  ADMIN:       'linear-gradient(135deg, #2563eb, #1d4ed8)',
+  TRAINER:     'linear-gradient(135deg, #f59e0b, #b45309)',
+  MEMBER:      'linear-gradient(135deg, #22c55e, #15803d)',
 };
 
 export default function Sidebar() {

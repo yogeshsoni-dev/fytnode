@@ -21,12 +21,42 @@ function toDate(dateStr) {
   return new Date(`${dateStr}T00:00:00.000Z`);
 }
 
-// ─── Seed data aligned with mockData.js ───────────────────────────────────────
+// ─── Seed ─────────────────────────────────────────────────────────────────────
 
 async function main() {
   console.log('🌱  Seeding database...');
 
-  // ── Subscription Plans ──────────────────────────────────────────────────────
+  // ── Super Admin (FytNodes owner) ─────────────────────────────────────────────
+  const superAdminHash = await bcrypt.hash('superadmin123', 12);
+  await prisma.user.upsert({
+    where: { email: 'owner@fytnodes.com' },
+    update: {},
+    create: {
+      email: 'owner@fytnodes.com',
+      password: superAdminHash,
+      name: 'FytNodes Owner',
+      role: 'SUPER_ADMIN',
+      gymId: null,
+    },
+  });
+  console.log('  ✓  Super admin');
+
+  // ── Sample Gym ───────────────────────────────────────────────────────────────
+  const gym = await prisma.gym.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      name: 'FitZone Elite',
+      address: '100 Fitness Blvd, Downtown',
+      phone: '555-0100',
+      email: 'fitzone@example.com',
+      isActive: true,
+    },
+  });
+  console.log('  ✓  1 gym');
+
+  // ── Subscription Plans (global) ──────────────────────────────────────────────
   const plans = await Promise.all([
     prisma.subscriptionPlan.upsert({
       where: { id: 1 },
@@ -79,16 +109,17 @@ async function main() {
   ]);
   console.log(`  ✓  ${plans.length} subscription plans`);
 
-  // ── Admin user ──────────────────────────────────────────────────────────────
+  // ── Admin for the gym ────────────────────────────────────────────────────────
   const adminHash = await bcrypt.hash('admin123', 12);
-  const admin = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: 'admin@gym.com' },
-    update: {},
+    update: { gymId: gym.id },
     create: {
       email: 'admin@gym.com',
       password: adminHash,
       name: 'Alex Johnson',
       role: 'ADMIN',
+      gymId: gym.id,
     },
   });
 
@@ -96,112 +127,88 @@ async function main() {
   const trainerHash = await bcrypt.hash('trainer123', 12);
   const trainerUser = await prisma.user.upsert({
     where: { email: 'trainer@gym.com' },
-    update: {},
+    update: { gymId: gym.id },
     create: {
       email: 'trainer@gym.com',
       password: trainerHash,
       name: 'Sarah Williams',
       role: 'TRAINER',
+      gymId: gym.id,
     },
   });
 
-  // Extra trainer users (staff, no login credentials in mockData)
   const carlosHash = await bcrypt.hash('carlos123', 12);
   const carlosUser = await prisma.user.upsert({
     where: { email: 'carlos@gym.com' },
-    update: {},
-    create: { email: 'carlos@gym.com', password: carlosHash, name: 'Carlos Rivera', role: 'TRAINER' },
+    update: { gymId: gym.id },
+    create: { email: 'carlos@gym.com', password: carlosHash, name: 'Carlos Rivera', role: 'TRAINER', gymId: gym.id },
   });
 
   const jessicaHash = await bcrypt.hash('jessica123', 12);
   const jessicaUser = await prisma.user.upsert({
     where: { email: 'jessica@gym.com' },
-    update: {},
-    create: { email: 'jessica@gym.com', password: jessicaHash, name: 'Jessica Kim', role: 'TRAINER' },
+    update: { gymId: gym.id },
+    create: { email: 'jessica@gym.com', password: jessicaHash, name: 'Jessica Kim', role: 'TRAINER', gymId: gym.id },
   });
 
   const davidHash = await bcrypt.hash('david123', 12);
   const davidUser = await prisma.user.upsert({
     where: { email: 'david@gym.com' },
-    update: {},
-    create: { email: 'david@gym.com', password: davidHash, name: 'David Chen', role: 'TRAINER' },
+    update: { gymId: gym.id },
+    create: { email: 'david@gym.com', password: davidHash, name: 'David Chen', role: 'TRAINER', gymId: gym.id },
   });
 
-  // Trainer profiles
-  const [t1, t2, t3, t4] = await Promise.all([
+  const [t1, t2, t3] = await Promise.all([
     prisma.trainer.upsert({
       where: { userId: trainerUser.id },
-      update: {},
+      update: { gymId: gym.id },
       create: {
-        id: 1,
-        userId: trainerUser.id,
-        phone: '555-0201',
-        specialization: 'Strength & Conditioning',
-        experience: 6,
-        schedule: 'Mon-Fri 6AM-2PM',
-        status: 'ACTIVE',
-        rating: 4.8,
+        id: 1, userId: trainerUser.id, gymId: gym.id,
+        phone: '555-0201', specialization: 'Strength & Conditioning',
+        experience: 6, schedule: 'Mon-Fri 6AM-2PM', status: 'ACTIVE', rating: 4.8,
       },
     }),
     prisma.trainer.upsert({
       where: { userId: carlosUser.id },
-      update: {},
+      update: { gymId: gym.id },
       create: {
-        id: 2,
-        userId: carlosUser.id,
-        phone: '555-0202',
-        specialization: 'Yoga & Flexibility',
-        experience: 8,
-        schedule: 'Mon-Sat 8AM-4PM',
-        status: 'ACTIVE',
-        rating: 4.9,
+        id: 2, userId: carlosUser.id, gymId: gym.id,
+        phone: '555-0202', specialization: 'Yoga & Flexibility',
+        experience: 8, schedule: 'Mon-Sat 8AM-4PM', status: 'ACTIVE', rating: 4.9,
       },
     }),
     prisma.trainer.upsert({
       where: { userId: jessicaUser.id },
-      update: {},
+      update: { gymId: gym.id },
       create: {
-        id: 3,
-        userId: jessicaUser.id,
-        phone: '555-0203',
-        specialization: 'Cardio & HIIT',
-        experience: 4,
-        schedule: 'Tue-Sun 10AM-6PM',
-        status: 'ACTIVE',
-        rating: 4.7,
+        id: 3, userId: jessicaUser.id, gymId: gym.id,
+        phone: '555-0203', specialization: 'Cardio & HIIT',
+        experience: 4, schedule: 'Tue-Sun 10AM-6PM', status: 'ACTIVE', rating: 4.7,
       },
     }),
     prisma.trainer.upsert({
       where: { userId: davidUser.id },
-      update: {},
+      update: { gymId: gym.id },
       create: {
-        id: 4,
-        userId: davidUser.id,
-        phone: '555-0204',
-        specialization: 'CrossFit & Olympic Lifting',
-        experience: 10,
-        schedule: 'N/A',
-        status: 'INACTIVE',
-        rating: 4.6,
+        id: 4, userId: davidUser.id, gymId: gym.id,
+        phone: '555-0204', specialization: 'CrossFit & Olympic Lifting',
+        experience: 10, schedule: 'N/A', status: 'INACTIVE', rating: 4.6,
       },
     }),
   ]);
-  console.log(`  ✓  4 trainers`);
+  console.log('  ✓  4 trainers');
 
   // ── Member users + Member profiles ──────────────────────────────────────────
   const memberHash = await bcrypt.hash('member123', 12);
   const memberUser = await prisma.user.upsert({
     where: { email: 'member@gym.com' },
-    update: {},
+    update: { gymId: gym.id },
     create: {
-      email: 'member@gym.com',
-      password: memberHash,
-      name: 'Mike Davis',
-      role: 'MEMBER',
+      email: 'member@gym.com', password: memberHash,
+      name: 'Mike Davis', role: 'MEMBER', gymId: gym.id,
     },
   });
 
-  // Remaining member users
   const membersData = [
     { email: 'emma@example.com',   name: 'Emma Wilson',   password: 'emma123' },
     { email: 'james@example.com',  name: 'James Brown',   password: 'james123' },
@@ -217,24 +224,23 @@ async function main() {
       const hash = await bcrypt.hash(m.password, 12);
       return prisma.user.upsert({
         where: { email: m.email },
-        update: {},
-        create: { email: m.email, password: hash, name: m.name, role: 'MEMBER' },
+        update: { gymId: gym.id },
+        create: { email: m.email, password: hash, name: m.name, role: 'MEMBER', gymId: gym.id },
       });
     })
   );
 
   const allMemberUsers = [memberUser, ...extraMemberUsers];
 
-  // Member profiles
   const memberProfiles = [
-    { phone: '555-0101', age: 28, address: '123 Main St',    joinDate: '2024-01-15', status: 'ACTIVE',   trainerId: t1.id, subscriptionId: 1 },
-    { phone: '555-0102', age: 32, address: '456 Oak Ave',    joinDate: '2024-02-01', status: 'ACTIVE',   trainerId: t2.id, subscriptionId: 2 },
-    { phone: '555-0103', age: 25, address: '789 Pine Rd',    joinDate: '2023-11-10', status: 'ACTIVE',   trainerId: t1.id, subscriptionId: 3 },
-    { phone: '555-0104', age: 29, address: '321 Elm St',     joinDate: '2024-03-05', status: 'ACTIVE',   trainerId: t3.id, subscriptionId: 1 },
-    { phone: '555-0105', age: 35, address: '654 Maple Dr',   joinDate: '2023-09-20', status: 'EXPIRED',  trainerId: t2.id, subscriptionId: 2 },
-    { phone: '555-0106', age: 27, address: '987 Cedar Ln',   joinDate: '2024-01-30', status: 'ACTIVE',   trainerId: t3.id, subscriptionId: 4 },
-    { phone: '555-0107', age: 31, address: '147 Birch Blvd', joinDate: '2024-02-14', status: 'PENDING',  trainerId: t1.id, subscriptionId: 1 },
-    { phone: '555-0108', age: 24, address: '258 Walnut Way', joinDate: '2023-12-01', status: 'ACTIVE',   trainerId: t2.id, subscriptionId: 3 },
+    { phone: '555-0101', age: 28, address: '123 Main St',    joinDate: '2024-01-15', status: 'ACTIVE',   trainerId: t1.id },
+    { phone: '555-0102', age: 32, address: '456 Oak Ave',    joinDate: '2024-02-01', status: 'ACTIVE',   trainerId: t2.id },
+    { phone: '555-0103', age: 25, address: '789 Pine Rd',    joinDate: '2023-11-10', status: 'ACTIVE',   trainerId: t1.id },
+    { phone: '555-0104', age: 29, address: '321 Elm St',     joinDate: '2024-03-05', status: 'ACTIVE',   trainerId: t3.id },
+    { phone: '555-0105', age: 35, address: '654 Maple Dr',   joinDate: '2023-09-20', status: 'EXPIRED',  trainerId: t2.id },
+    { phone: '555-0106', age: 27, address: '987 Cedar Ln',   joinDate: '2024-01-30', status: 'ACTIVE',   trainerId: t3.id },
+    { phone: '555-0107', age: 31, address: '147 Birch Blvd', joinDate: '2024-02-14', status: 'PENDING',  trainerId: t1.id },
+    { phone: '555-0108', age: 24, address: '258 Walnut Way', joinDate: '2023-12-01', status: 'ACTIVE',   trainerId: t2.id },
   ];
 
   const createdMembers = await Promise.all(
@@ -242,10 +248,11 @@ async function main() {
       const p = memberProfiles[i];
       return prisma.member.upsert({
         where: { userId: u.id },
-        update: {},
+        update: { gymId: gym.id },
         create: {
           id: i + 1,
           userId: u.id,
+          gymId: gym.id,
           phone: p.phone,
           age: p.age,
           address: p.address,
@@ -342,6 +349,7 @@ async function main() {
           message: n.message,
           priority: n.priority,
           read: n.read,
+          gymId: gym.id,
           createdAt: toDate(n.date),
         },
       })
@@ -351,9 +359,10 @@ async function main() {
 
   console.log('\n✅  Seed complete!\n');
   console.log('Demo credentials:');
-  console.log('  Admin   → admin@gym.com    / admin123');
-  console.log('  Trainer → trainer@gym.com  / trainer123');
-  console.log('  Member  → member@gym.com   / member123');
+  console.log('  Super Admin → owner@fytnodes.com / superadmin123');
+  console.log('  Admin       → admin@gym.com      / admin123');
+  console.log('  Trainer     → trainer@gym.com    / trainer123');
+  console.log('  Member      → member@gym.com     / member123');
 }
 
 main()

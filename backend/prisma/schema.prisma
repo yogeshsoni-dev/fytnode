@@ -10,6 +10,7 @@ datasource db {
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   TRAINER
   MEMBER
@@ -49,6 +50,22 @@ enum Priority {
 
 // ─── Models ───────────────────────────────────────────────────────────────────
 
+model Gym {
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String?
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  members       Member[]
+  trainers      Trainer[]
+  notifications Notification[]
+}
+
 model User {
   id            Int            @id @default(autoincrement())
   email         String         @unique
@@ -56,6 +73,8 @@ model User {
   name          String
   role          Role           @default(MEMBER)
   isActive      Boolean        @default(true)
+  gymId         Int?
+  gym           Gym?           @relation(fields: [gymId], references: [id], onDelete: SetNull)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
@@ -78,6 +97,8 @@ model Member {
   id            Int            @id @default(autoincrement())
   userId        Int            @unique
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gymId         Int
+  gym           Gym            @relation(fields: [gymId], references: [id])
   phone         String?
   age           Int?
   address       String?
@@ -95,6 +116,8 @@ model Trainer {
   id             Int           @id @default(autoincrement())
   userId         Int           @unique
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gymId          Int
+  gym            Gym           @relation(fields: [gymId], references: [id])
   phone          String?
   specialization String?
   experience     Int?
@@ -155,11 +178,14 @@ model Notification {
   message   String
   priority  Priority         @default(LOW)
   read      Boolean          @default(false)
+  gymId     Int?
+  gym       Gym?             @relation(fields: [gymId], references: [id], onDelete: SetNull)
   userId    Int?
   user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
   @@index([userId])
+  @@index([gymId])
   @@index([read])
 }

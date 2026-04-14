@@ -18,16 +18,19 @@ import {
   AlertCircle,
   ArrowRight,
   Bell,
+  Building2,
   CalendarCheck,
   CreditCard,
   DollarSign,
   TrendingDown,
   TrendingUp,
+  UserCheck,
   Users,
   Zap,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { attendanceApi } from '../../api/attendance.api';
+import { gymsApi } from '../../api/gyms.api';
 import { membersApi } from '../../api/members.api';
 import { subscriptionsApi } from '../../api/subscriptions.api';
 import { trainersApi } from '../../api/trainers.api';
@@ -207,6 +210,7 @@ export default function Dashboard() {
   const { state, unreadCount } = useApp();
   const currentUser = state.currentUser;
   const role = currentUser?.role;
+  const isSuperAdmin = role === 'SUPER_ADMIN';
   const isAdmin = role === 'ADMIN';
   const isTrainer = role === 'TRAINER';
   const isMember = role === 'MEMBER';
@@ -222,7 +226,28 @@ export default function Dashboard() {
     setError('');
 
     try {
-      if (isAdmin) {
+      if (isSuperAdmin) {
+        const gymsRes = await gymsApi.getAll({ limit: 100 });
+        const gyms = gymsRes.data;
+        const totalMembers   = gyms.reduce((s, g) => s + g.memberCount, 0);
+        const totalTrainers  = gyms.reduce((s, g) => s + g.trainerCount, 0);
+        const activeGyms     = gyms.filter((g) => g.isActive).length;
+
+        setData({
+          gyms,
+          totalGyms: gyms.length,
+          activeGyms,
+          totalMembers,
+          totalTrainers,
+          // empty placeholders so the rest of the render still works
+          members: [], total: totalMembers,
+          subsStats: { byStatus: { active: 0, expired: 0, pending: 0, cancelled: 0 }, monthlyRevenue: 0, planDistribution: [] },
+          attStats: { daily: [] },
+          todayCount: 0,
+          recentCheckins: [],
+          trainers: [],
+        });
+      } else if (isAdmin) {
         const [membersRes, subsStats, attStats, attToday, trainersRes] = await Promise.all([
           membersApi.getAll({ limit: 100 }),
           subscriptionsApi.getStats(),
@@ -297,7 +322,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [currentUser, isAdmin, isMember, isTrainer]);
+  }, [currentUser, isSuperAdmin, isAdmin, isMember, isTrainer]);
 
   useEffect(() => {
     loadDashboard();
@@ -306,6 +331,90 @@ export default function Dashboard() {
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} onRetry={loadDashboard} />;
   if (!data) return null;
+
+  // ── Super Admin Dashboard ────────────────────────────────────────────────────
+  if (isSuperAdmin) {
+    const { gyms = [], totalGyms, activeGyms, totalMembers, totalTrainers } = data;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={S.banner}>
+          <div>
+            <div style={S.bannerEye}><Zap size={12} color="var(--red)" /> FYTNODES NETWORK OVERVIEW</div>
+            <h2 style={S.bannerTitle}>Super Admin Dashboard</h2>
+          </div>
+        </div>
+
+        <div className="grid-4">
+          {[
+            { label: 'Total Gyms',    value: totalGyms,    icon: Building2,  color: '#e11d48', bg: 'rgba(225,29,72,0.1)' },
+            { label: 'Active Gyms',   value: activeGyms,   icon: Building2,  color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
+            { label: 'Total Members', value: totalMembers, icon: Users,      color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+            { label: 'Total Trainers',value: totalTrainers,icon: UserCheck,  color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
+          ].map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.label} className="stat-card" style={{ '--accent-color': card.color }}>
+                <div className="stat-icon" style={{ background: card.bg }}><Icon size={20} color={card.color} /></div>
+                <div className="stat-info">
+                  <div className="stat-value">{card.value}</div>
+                  <div className="stat-label">{card.label}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="card">
+          <div className="section-title" style={{ marginBottom: 16 }}>
+            <Building2 size={13} color="var(--red)" /> All Gyms
+          </div>
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Gym</th>
+                  <th>Admin</th>
+                  <th>Members</th>
+                  <th>Trainers</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gyms.length === 0 ? (
+                  <tr><td colSpan={5}><div className="empty-state"><Building2 size={24}/><h3>No gyms yet</h3></div></td></tr>
+                ) : gyms.map((gym) => (
+                  <tr key={gym.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(225,29,72,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Building2 size={14} color="var(--red)" />
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 13 }}>{gym.name}</div>
+                          {gym.address && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{gym.address}</div>}
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ fontSize: 12 }}>
+                      {gym.admin ? (
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{gym.admin.name}</div>
+                          <div style={{ color: 'var(--text-muted)' }}>{gym.admin.email}</div>
+                        </div>
+                      ) : <span style={{ color: 'var(--text-muted)' }}>No admin</span>}
+                    </td>
+                    <td><span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{gym.memberCount}</span></td>
+                    <td><span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{gym.trainerCount}</span></td>
+                    <td><span className={`badge badge-${gym.isActive ? 'active' : 'expired'}`}>{gym.isActive ? 'active' : 'inactive'}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const { members, total, subsStats, attStats, todayCount, recentCheckins, trainers } = data;
 

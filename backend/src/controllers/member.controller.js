@@ -5,6 +5,7 @@ const prisma = require('../utils/prismaClient');
 const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catchAsync');
 const { success, paginated } = require('../utils/response');
+const { resolveGymId } = require('../middleware/rbac.middleware');
 
 const MEMBER_INCLUDE = {
   user: { select: { id: true, email: true, name: true, role: true, isActive: true } },
@@ -22,11 +23,15 @@ const MEMBER_INCLUDE = {
 
 // ─── GET /api/members ─────────────────────────────────────────────────────────
 exports.getAll = catchAsync(async (req, res) => {
-  const page  = Math.max(1, parseInt(req.query.page)  || 1);
-  const limit = Math.min(100, parseInt(req.query.limit) || 20);
+  const page  = Math.max(1, parseInt(req.query.page, 10)  || 1);
+  const limit = Math.min(100, parseInt(req.query.limit, 10) || 20);
   const skip  = (page - 1) * limit;
 
   const where = {};
+
+  const gymId = resolveGymId(req);
+  if (gymId) where.gymId = gymId;
+
   if (req.query.status) where.status = req.query.status.toUpperCase();
   if (req.query.search) {
     where.user = {
@@ -70,13 +75,21 @@ exports.getOne = catchAsync(async (req, res, next) => {
     return next(new AppError('You can only view your own member profile.', 403));
   }
 
+  // ADMIN/TRAINER scoped to their gym
+  const gymId = resolveGymId(req);
+  if (gymId && member.gymId !== gymId) {
+    return next(new AppError('Member not found.', 404));
+  }
+
   success(res, member);
 });
 
 // ─── POST /api/members ────────────────────────────────────────────────────────
-// Creates User (role=MEMBER) + Member profile atomically
-exports.create = catchAsync(async (req, res) => {
+exports.create = catchAsync(async (req, res, next) => {
   const { name, email, password, phone, age, address, trainerId, status } = req.body;
+
+  const gymId = resolveGymId(req);
+  if (!gymId) return next(new AppError('Gym context is required to create a member.', 400));
 
   const hash = await bcrypt.hash(password, 12);
 
@@ -87,11 +100,13 @@ exports.create = catchAsync(async (req, res) => {
         password: hash,
         name,
         role: 'MEMBER',
+        gymId,
       },
     });
     return tx.member.create({
       data: {
         userId: user.id,
+        gymId,
         phone,
         age: age ? parseInt(age, 10) : undefined,
         address,
@@ -112,16 +127,21 @@ exports.update = catchAsync(async (req, res, next) => {
   const existing = await prisma.member.findUnique({ where: { id: memberId } });
   if (!existing) return next(new AppError('Member not found.', 404));
 
+  // Gym scope check
+  const gymId = resolveGymId(req);
+  if (gymId && existing.gymId !== gymId) {
+    return next(new AppError('Member not found.', 404));
+  }
+
   // Members can only edit their own profile
   if (req.user.role === 'MEMBER' && existing.userId !== req.user.id) {
     return next(new AppError('You can only update your own member profile.', 403));
   }
 
   const data = {};
-  if (req.body.phone     != null) data.phone     = req.body.phone;
-  if (req.body.age       != null) data.age       = parseInt(req.body.age, 10);
-  if (req.body.address   != null) data.address   = req.body.address;
-  // Only admin/trainer can change these
+  if (req.body.phone   != null) data.phone   = req.body.phone;
+  if (req.body.age     != null) data.age     = parseInt(req.body.age, 10);
+  if (req.body.address != null) data.address = req.body.address;
   if (req.user.role !== 'MEMBER') {
     if (req.body.status    != null) data.status    = req.body.status.toUpperCase();
     if (req.body.trainerId != null) data.trainerId = parseInt(req.body.trainerId, 10);
@@ -138,7 +158,11 @@ exports.remove = catchAsync(async (req, res, next) => {
   const existing = await prisma.member.findUnique({ where: { id: memberId } });
   if (!existing) return next(new AppError('Member not found.', 404));
 
-  // Delete User → cascades to Member profile
+  const gymId = resolveGymId(req);
+  if (gymId && existing.gymId !== gymId) {
+    return next(new AppError('Member not found.', 404));
+  }
+
   await prisma.user.delete({ where: { id: existing.userId } });
   success(res, null, 200, 'Member deleted successfully');
 });
