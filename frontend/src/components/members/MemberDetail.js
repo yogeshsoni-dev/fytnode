@@ -1,5 +1,6 @@
 import { Mail, Phone, MapPin, Calendar, User, CreditCard, CalendarCheck, Clock } from 'lucide-react';
 import { calcDuration } from '../../utils/formatters';
+import SplineAvatar from '../shared/SplineAvatar';
 
 export default function MemberDetail({ member }) {
   const sub     = member.subscriptions?.[0];
@@ -45,6 +46,11 @@ export default function MemberDetail({ member }) {
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>Total Visits</div>
           <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--red)', letterSpacing: '-1px' }}>{visits.length}</div>
         </div>
+      </div>
+
+      <div>
+        <div className="section-title"><User size={12} color="var(--red)" /> Shared 3D Avatar</div>
+        <SplineAvatar title={`${member.name} avatar`} height={280} />
       </div>
 
       {/* Info grid */}
