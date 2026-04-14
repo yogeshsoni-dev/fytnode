@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { healthProfileApi } from '../api/healthProfile.api';
 import { useAuth } from '../context/AuthContext';
+import SplineAvatar from '../components/shared/SplineAvatar';
 
 const FITNESS_GOALS = [
   { value: 'weight_loss',    label: 'Weight Loss' },
@@ -138,6 +139,10 @@ export default function HealthProfileScreen() {
 
   return (
     <div className="space-y-4 pb-4">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
+        <SplineAvatar title={`${user?.name || 'Member'} avatar`} heightClass="h-[460px]" />
+      </div>
+
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
           <User className="w-5 h-5 text-indigo-500" />
