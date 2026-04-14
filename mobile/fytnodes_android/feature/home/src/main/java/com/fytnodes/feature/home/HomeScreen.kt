@@ -91,6 +91,7 @@ fun DashboardRoute(
             uiState = state,
             checkInUiState = checkInUiState,
             onCheckInClick = checkInViewModel::checkIn,
+            onCheckOutClick = checkInViewModel::checkOut,
             onRefreshProfile = viewModel::syncUserProfile,
             onNavigateToActivity = onNavigateToActivity,
             modifier = modifier,
@@ -103,6 +104,7 @@ private fun DashboardScreen(
     uiState: DashboardUiState.Success,
     checkInUiState: CheckInUiState,
     onCheckInClick: () -> Unit,
+    onCheckOutClick: () -> Unit,
     onRefreshProfile: () -> Unit,
     onNavigateToActivity: () -> Unit,
     modifier: Modifier = Modifier,
@@ -141,6 +143,7 @@ private fun DashboardScreen(
                         DailyCheckInCard(
                             uiState = checkInUiState,
                             onCheckInClick = onCheckInClick,
+                            onCheckOutClick = onCheckOutClick,
                         )
                     }
 
@@ -436,6 +439,7 @@ fun DashboardScreenPreview() {
             uiState = uiState,
             checkInUiState = CheckInUiState.Idle,
             onCheckInClick = {},
+            onCheckOutClick = {},
             onRefreshProfile = {},
             onNavigateToActivity = {},
         )

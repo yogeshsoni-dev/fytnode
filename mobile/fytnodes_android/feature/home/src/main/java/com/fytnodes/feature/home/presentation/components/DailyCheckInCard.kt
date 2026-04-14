@@ -44,13 +44,22 @@ import com.fytnodes.feature.checkin.presentation.CheckInUiState
 fun DailyCheckInCard(
     uiState: CheckInUiState,
     onCheckInClick: () -> Unit,
+    onCheckOutClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val successState = uiState as? CheckInUiState.Success
-    val streak = 0
-    val alreadyCheckedIn = successState != null
-    val isLoading = uiState is CheckInUiState.Loading
-    val enabled = !isLoading && !alreadyCheckedIn
+    val checkedInState = uiState as? CheckInUiState.CheckedIn
+    val checkedOutState = uiState as? CheckInUiState.CheckedOut
+    val streak = checkedOutState?.streak ?: checkedInState?.streak ?: 0
+    val isLoading = uiState is CheckInUiState.LoadingCheckIn || uiState is CheckInUiState.LoadingCheckOut
+    val isCompleted = checkedOutState != null
+    val isReadyForCheckout = checkedInState != null
+    val enabled = !isLoading && !isCompleted
+    val buttonText = when {
+        isCompleted -> "Completed"
+        isReadyForCheckout -> "Check-out"
+        else -> "Check-in"
+    }
+    val action = if (isReadyForCheckout) onCheckOutClick else onCheckInClick
     val buttonScale = animateFloatAsState(
         targetValue = if (enabled) 1f else 0.98f,
         animationSpec = tween(durationMillis = 150),
@@ -102,7 +111,7 @@ fun DailyCheckInCard(
                 }
 
                 Button(
-                    onClick = onCheckInClick,
+                    onClick = action,
                     enabled = enabled,
                     modifier = Modifier.scale(buttonScale),
                     shape = RoundedCornerShape(Radius16),
@@ -121,7 +130,7 @@ fun DailyCheckInCard(
                         )
                     } else {
                         Text(
-                            text = if (alreadyCheckedIn) "Checked-in" else "Check-in",
+                            text = buttonText,
                             style = MaterialTheme.typography.labelLarge,
                         )
                     }
@@ -129,10 +138,10 @@ fun DailyCheckInCard(
             }
         }
 
-        if (successState != null) {
+        if (checkedInState != null || checkedOutState != null) {
             Spacer(modifier = Modifier.height(Space2))
             Text(
-                text = successState.message,
+                text = checkedOutState?.message ?: checkedInState?.message.orEmpty(),
                 color = NeonGreen,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(horizontal = Space2),

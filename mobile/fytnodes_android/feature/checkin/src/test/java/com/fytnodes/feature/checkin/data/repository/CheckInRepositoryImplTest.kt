@@ -4,8 +4,9 @@ import com.fytnodes.core.common.result.AppResult
 import com.fytnodes.core.database.dao.UserDao
 import com.fytnodes.core.database.entity.UserEntity
 import com.fytnodes.feature.checkin.data.remote.CheckInApiService
+import com.fytnodes.feature.checkin.data.remote.AttendanceDataDto
+import com.fytnodes.feature.checkin.data.remote.AttendanceResponseDto
 import com.fytnodes.feature.checkin.data.remote.CheckInRequestDto
-import com.fytnodes.feature.checkin.data.remote.CheckInResponseDto
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -78,18 +79,53 @@ class CheckInRepositoryImplTest {
         assertTrue(result is AppResult.Error)
         assertEquals("Already checked in today", (result as AppResult.Error).message)
     }
+
+    @Test
+    fun `403 checkout maps to can only check yourself out message`() = runTest {
+        val api = FakeCheckInApi().apply {
+            checkoutError = httpException(
+                code = 403,
+                body = """{"message":"forbidden"}""",
+            )
+        }
+        val userDao = FakeUserDao(
+            UserEntity(
+                email = "member@fytnodes.com",
+                name = "Member",
+                role = "MEMBER",
+                memberId = 11,
+            ),
+        )
+        val repository = CheckInRepositoryImpl(api = api, userDao = userDao, json = Json)
+
+        val result = repository.checkOut(attendanceId = 99)
+
+        assertTrue(result is AppResult.Error)
+        assertEquals("You can only check yourself out", (result as AppResult.Error).message)
+    }
 }
 
 private class FakeCheckInApi : CheckInApiService {
     var lastRequest: CheckInRequestDto? = null
     var error: Throwable? = null
+    var checkoutError: Throwable? = null
 
-    override suspend fun checkIn(request: CheckInRequestDto): CheckInResponseDto {
+    override suspend fun checkIn(request: CheckInRequestDto): AttendanceResponseDto {
         error?.let { throw it }
         lastRequest = request
-        return CheckInResponseDto(
+        return AttendanceResponseDto(
             success = true,
             message = "Check-in recorded",
+            data = AttendanceDataDto(id = 123),
+        )
+    }
+
+    override suspend fun checkOut(attendanceId: Int, request: Map<String, String>): AttendanceResponseDto {
+        checkoutError?.let { throw it }
+        return AttendanceResponseDto(
+            success = true,
+            message = "Check-out recorded",
+            data = AttendanceDataDto(id = attendanceId),
         )
     }
 }

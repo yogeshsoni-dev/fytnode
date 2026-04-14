@@ -1,6 +1,10 @@
 package com.fytnodes.feature.checkin.domain.model
 
 data class CheckInResult(
+    val attendanceId: Int,
     val message: String,
-    val alreadyCheckedIn: Boolean,
+)
+
+data class CheckOutResult(
+    val message: String,
 )
