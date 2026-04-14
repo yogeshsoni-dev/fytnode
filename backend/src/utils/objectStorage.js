@@ -71,14 +71,30 @@ function getBucketBaseUrl(config) {
 function extractObjectName(storedValue) {
   if (!storedValue) return null;
 
+  // Already a relative path (object key) — use as-is
   if (!/^https?:\/\//i.test(storedValue)) {
     return storedValue.replace(/^\/+/, '');
   }
 
   const config = getConfig();
+
+  // Try the current public base URL first (fast path)
   const bucketBaseUrl = getBucketBaseUrl(config);
   if (storedValue.startsWith(bucketBaseUrl)) {
     return decodeURIComponent(storedValue.slice(bucketBaseUrl.length));
+  }
+
+  // Domain may have changed (e.g. zrok tunnel rotated).
+  // Extract the object key from the URL path: /{bucket}/{objectKey}
+  try {
+    const url = new URL(storedValue);
+    const rawPath = url.pathname.replace(/^\/+/, '');
+    const prefix = `${config.bucket}/`;
+    if (rawPath.startsWith(prefix)) {
+      return decodeURIComponent(rawPath.slice(prefix.length));
+    }
+  } catch {
+    // ignore malformed URLs
   }
 
   return null;

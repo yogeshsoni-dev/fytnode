@@ -6,12 +6,14 @@ import AttendanceScreen from '../screens/AttendanceScreen';
 import CalorieScreen from '../screens/CalorieScreen';
 import ExerciseScreen from '../screens/ExerciseScreen';
 import ChatScreen from '../screens/ChatScreen';
+import HealthProfileScreen from '../screens/HealthProfileScreen';
 
 const SCREEN_TITLES = {
   attendance: 'Attendance',
   calories:   'Calorie Tracker',
   exercise:   'Exercise Log',
   chat:       'AI Health Coach',
+  profile:    'Health Profile',
 };
 
 const SCREEN_SUBTITLES = {
@@ -19,6 +21,7 @@ const SCREEN_SUBTITLES = {
   calories:   'Track what you eat',
   exercise:   'Log your workouts',
   chat:       'Personalised fitness advice',
+  profile:    'Your fitness data & goals',
 };
 
 export default function Home() {
@@ -60,6 +63,7 @@ export default function Home() {
         {activeTab === 'calories'   && <CalorieScreen />}
         {activeTab === 'exercise'   && <ExerciseScreen />}
         {activeTab === 'chat'       && <ChatScreen />}
+        {activeTab === 'profile'    && <HealthProfileScreen />}
       </main>
 
       {/* Bottom Navigation */}

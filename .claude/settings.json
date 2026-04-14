@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Workspace/**)",
+      "Read(//c/Users/myid1/**)"
+    ]
+  }
+}

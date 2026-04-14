@@ -1,5 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useReducer } from 'react';
 import { authApi } from '../api/auth.api';
+import { healthProfileApi } from '../api/healthProfile.api';
+
+// Silently ensure user exists in Django AI backend
+async function ensureDjangoUser(user) {
+  try {
+    await healthProfileApi.createOrUpdate({ name: user.name || user.email });
+  } catch {
+    // Non-critical — don't block login
+  }
+}
 
 const AuthContext = createContext();
 
@@ -42,6 +52,7 @@ export function AuthProvider({ children }) {
         const user = await authApi.me();
         localStorage.setItem('currentUser', JSON.stringify(user));
         dispatch({ type: 'SET_USER', payload: user });
+        ensureDjangoUser(user);
       } catch {
         clearStorage();
         dispatch({ type: 'AUTH_DONE' });
@@ -58,6 +69,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('currentUser', JSON.stringify(user));
     dispatch({ type: 'SET_USER', payload: user });
+    ensureDjangoUser(user);
     return user;
   }, []);
 

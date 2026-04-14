@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bot, Loader2, Send, User } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { chatApi } from '../api/chat.api';
 
 const WELCOME_MSG = {
@@ -42,7 +43,7 @@ export default function ChatScreen() {
 
     try {
       const res = await chatApi.sendMessage(msg);
-      const reply = res?.response ?? res?.message ?? res?.reply ?? JSON.stringify(res);
+      const reply = res?.answer ?? res?.response ?? res?.message ?? res?.reply ?? JSON.stringify(res);
       setMessages((prev) => [
         ...prev,
         { id: Date.now() + 1, role: 'ai', text: reply, ts: Date.now() },
@@ -98,7 +99,24 @@ export default function ChatScreen() {
                   : 'bg-indigo-600 text-white rounded-tr-sm'
               }`}
             >
-              {msg.text}
+              {msg.role === 'ai' ? (
+                <ReactMarkdown
+                  components={{
+                    p:      ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                    ul:     ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
+                    ol:     ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
+                    li:     ({ children }) => <li className="leading-snug">{children}</li>,
+                    h1:     ({ children }) => <p className="font-bold text-base mb-1">{children}</p>,
+                    h2:     ({ children }) => <p className="font-bold mb-1">{children}</p>,
+                    h3:     ({ children }) => <p className="font-semibold mb-1">{children}</p>,
+                  }}
+                >
+                  {msg.text}
+                </ReactMarkdown>
+              ) : (
+                msg.text
+              )}
             </div>
           </div>
         ))}
