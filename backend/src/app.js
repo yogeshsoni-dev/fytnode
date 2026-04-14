@@ -35,9 +35,21 @@ app.use(helmet({
 }));
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
+// Support a comma-separated list of allowed origins for multi-app setups
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000,http://localhost:3001')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, cb) => {
+      // Allow requests with no origin (e.g. mobile apps, curl) or from allowed list
+      // Use cb(null, false) — NOT cb(new Error()) — so rejected origins get a CORS
+      // error in the browser rather than an Express 500.
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      cb(null, false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
