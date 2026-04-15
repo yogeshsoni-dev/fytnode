@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3001,
-    allowedHosts: ['4o1c69oc3q78.share.zrok.io'],
+    allowedHosts: ['9gzb6j508dn3.share.zrok.io'],
     proxy: {
       // Node.js/Express backend
       '/api': {
