@@ -13,15 +13,18 @@ export const caloriesApi = {
 
   // Log confirmed meal intake
   logIntake: async (payload) => {
-    // payload: { meal_type, total_calories, food_details, image_url? }
+    // payload: { meal_type, total_calories, protein_g?, carbs_g?, fat_g?, food_details, image_url? }
     const { data } = await aiClient.post('/log-intake/', payload);
     return data;
   },
 
   // Log calories burned manually
-  logBurned: async (payload) => {
-    // payload: { calories_burned }
-    const { data } = await aiClient.post('/log-burn/', payload);
+  logBurned: async ({ calories_burned, activity_name = 'Manual entry', duration_minutes }) => {
+    const { data } = await aiClient.post('/log-burn/', {
+      calories_burned,
+      activity_name,
+      ...(duration_minutes != null && { duration_minutes }),
+    });
     return data;
   },
 

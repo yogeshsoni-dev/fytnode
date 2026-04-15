@@ -1,37 +1,48 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Dumbbell, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { authApi } from '../api/auth.api';
 
-export default function Login() {
-  const { login } = useAuth();
-  const navigate   = useNavigate();
+export default function Signup() {
+  const { signup } = useAuth();
+  const navigate = useNavigate();
 
+  const [gyms, setGyms]         = useState([]);
+  const [gymsLoading, setGymsLoading] = useState(true);
+
+  const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
+  const [gymId, setGymId]       = useState('');
   const [showPw, setShowPw]     = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
 
+  useEffect(() => {
+    authApi.getGyms()
+      .then(setGyms)
+      .catch(() => setError('Could not load gym list. Make sure the backend is running.'))
+      .finally(() => setGymsLoading(false));
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!gymId) { setError('Please select your gym.'); return; }
     setLoading(true);
     setError('');
     try {
-      const user = await login(email.trim(), password);
+      const user = await signup({ name: name.trim(), email: email.trim(), password, gymId: Number(gymId) });
       if (user.role !== 'MEMBER') {
-        setError(
-          'This app is for gym members only. Please use the admin dashboard for staff access.'
-        );
+        setError('Unexpected account type. Please contact your gym admin.');
         return;
       }
       navigate('/');
-    } catch (e) {
-      if (!e?.response) {
-        // No response = CORS block or server not reachable
-        setError('Cannot reach server. Make sure the backend is running and restarted after config changes.');
+    } catch (err) {
+      if (!err?.response) {
+        setError('Cannot reach server. Make sure the backend is running.');
       } else {
-        setError(e.response.data?.message || 'Invalid email or password.');
+        setError(err.response.data?.message || 'Sign up failed. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -47,12 +58,12 @@ export default function Login() {
             <Dumbbell className="w-8 h-8 text-indigo-600" />
           </div>
           <h1 className="text-3xl font-bold text-white">FytNodes</h1>
-          <p className="text-indigo-200 mt-1 text-sm">Your fitness companion</p>
+          <p className="text-indigo-200 mt-1 text-sm">Create your member account</p>
         </div>
 
         {/* Card */}
         <div className="bg-white rounded-3xl shadow-2xl p-6 space-y-5">
-          <h2 className="text-xl font-bold text-gray-800 text-center">Welcome back</h2>
+          <h2 className="text-xl font-bold text-gray-800 text-center">Sign Up</h2>
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
@@ -61,6 +72,23 @@ export default function Login() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Name */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="John Doe"
+                required
+                autoComplete="name"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-shadow"
+              />
+            </div>
+
+            {/* Email */}
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                 Email
@@ -76,6 +104,7 @@ export default function Login() {
               />
             </div>
 
+            {/* Password */}
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                 Password
@@ -85,9 +114,10 @@ export default function Login() {
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Min. 6 characters"
                   required
-                  autoComplete="current-password"
+                  minLength={6}
+                  autoComplete="new-password"
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-shadow"
                 />
                 <button
@@ -100,25 +130,47 @@ export default function Login() {
               </div>
             </div>
 
+            {/* Gym */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                Your Gym
+              </label>
+              {gymsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-gray-400 py-3">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading gyms…
+                </div>
+              ) : (
+                <select
+                  value={gymId}
+                  onChange={(e) => setGymId(e.target.value)}
+                  required
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-shadow bg-white"
+                >
+                  <option value="">Select your gym</option>
+                  {gyms.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}{g.address ? ` — ${g.address}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || gymsLoading}
               className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-3.5 rounded-xl transition-colors disabled:opacity-60 mt-2"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? 'Creating account…' : 'Create Account'}
             </button>
           </form>
 
           <p className="text-center text-sm text-gray-500">
-            New member?{' '}
-            <Link to="/signup" className="text-indigo-600 font-semibold hover:underline">
-              Create an account
+            Already have an account?{' '}
+            <Link to="/login" className="text-indigo-600 font-semibold hover:underline">
+              Sign In
             </Link>
-          </p>
-
-          <p className="text-center text-xs text-gray-400">
-            Contact your gym admin if you forgot your password.
           </p>
         </div>
       </div>

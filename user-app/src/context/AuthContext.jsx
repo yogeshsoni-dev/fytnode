@@ -62,9 +62,17 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    // The login response already contains the full user object — no need for a
-    // separate /me call that could fail with CORS or network errors.
     const { user, accessToken, refreshToken } = await authApi.login(email, password);
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+    localStorage.setItem('currentUser', JSON.stringify(user));
+    dispatch({ type: 'SET_USER', payload: user });
+    ensureDjangoUser(user);
+    return user;
+  }, []);
+
+  const signup = useCallback(async (fields) => {
+    const { user, accessToken, refreshToken } = await authApi.memberSignup(fields);
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('currentUser', JSON.stringify(user));
@@ -85,7 +93,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user: state.user, loading: state.loading, login, logout }}>
+    <AuthContext.Provider value={{ user: state.user, loading: state.loading, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );

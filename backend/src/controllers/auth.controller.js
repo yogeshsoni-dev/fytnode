@@ -95,6 +95,62 @@ async function buildAuthResponse(userId) {
   return { user, accessToken, refreshToken };
 }
 
+// Public list of active gyms — used by the member self-signup form
+exports.getPublicGyms = catchAsync(async (req, res) => {
+  const gyms = await prisma.gym.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, address: true },
+    orderBy: { name: 'asc' },
+  });
+  success(res, gyms);
+});
+
+// Self-service signup for gym members
+exports.memberSignup = catchAsync(async (req, res, next) => {
+  const { name, email, password, gymId, phone, age, address } = req.body;
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const existing = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: { id: true },
+  });
+  if (existing) {
+    return next(new AppError('An account with this email already exists.', 409));
+  }
+
+  const gym = await prisma.gym.findUnique({
+    where: { id: Number(gymId) },
+    select: { id: true, isActive: true },
+  });
+  if (!gym || !gym.isActive) {
+    return next(new AppError('Selected gym not found or is no longer active.', 404));
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  const createdUser = await prisma.user.create({
+    data: {
+      email: normalizedEmail,
+      password: passwordHash,
+      name: name.trim(),
+      role: 'MEMBER',
+      gymId: gym.id,
+      member: {
+        create: {
+          gymId: gym.id,
+          phone: phone?.trim() || null,
+          age: age ? parseInt(age, 10) : null,
+          address: address?.trim() || null,
+        },
+      },
+    },
+    select: { id: true },
+  });
+
+  const authData = await buildAuthResponse(createdUser.id);
+  success(res, authData, 201, 'Account created successfully');
+});
+
 exports.signup = catchAsync(async (req, res, next) => {
   const { name, email, password } = req.body;
   const normalizedEmail = email.toLowerCase().trim();

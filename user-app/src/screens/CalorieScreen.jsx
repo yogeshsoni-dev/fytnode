@@ -39,6 +39,9 @@ export default function CalorieScreen() {
 
   // Manual entry
   const [manualCalories, setManualCalories] = useState('');
+  const [manualProtein, setManualProtein]   = useState('');
+  const [manualCarbs, setManualCarbs]       = useState('');
+  const [manualFat, setManualFat]           = useState('');
   const [manualBurned, setManualBurned]     = useState('');
   const [manualMealType, setManualMealType] = useState('lunch');
   const [manualLogging, setManualLogging]   = useState(false);
@@ -100,6 +103,18 @@ export default function CalorieScreen() {
     .filter((_, i) => selectedFoods.includes(i))
     .reduce((sum, f) => sum + (f.calories || 0), 0);
 
+  const selectedProtein = (analysisResult?.foods ?? [])
+    .filter((_, i) => selectedFoods.includes(i))
+    .reduce((sum, f) => sum + (f.protein_g || 0), 0);
+
+  const selectedCarbs = (analysisResult?.foods ?? [])
+    .filter((_, i) => selectedFoods.includes(i))
+    .reduce((sum, f) => sum + (f.carbs_g || 0), 0);
+
+  const selectedFat = (analysisResult?.foods ?? [])
+    .filter((_, i) => selectedFoods.includes(i))
+    .reduce((sum, f) => sum + (f.fat_g || 0), 0);
+
   const handleLogMeal = async () => {
     if (selectedFoods.length === 0) return;
     const foods = (analysisResult?.foods ?? []).filter((_, i) => selectedFoods.includes(i));
@@ -109,7 +124,13 @@ export default function CalorieScreen() {
       await caloriesApi.logIntake({
         meal_type:      mealType,
         total_calories: selectedCalories,
-        food_details:   foods.map((f) => ({ name: f.name, calories: f.calories })),
+        protein_g:      selectedProtein,
+        carbs_g:        selectedCarbs,
+        fat_g:          selectedFat,
+        food_details:   foods.map((f) => ({
+          name: f.name, calories: f.calories,
+          protein_g: f.protein_g || 0, carbs_g: f.carbs_g || 0, fat_g: f.fat_g || 0,
+        })),
         image_url:      analysisResult?.image_url,
       });
       setLogSuccess(true);
@@ -141,6 +162,9 @@ export default function CalorieScreen() {
         await caloriesApi.logIntake({
           meal_type:      manualMealType,
           total_calories: intake,
+          protein_g:      parseInt(manualProtein, 10) || 0,
+          carbs_g:        parseInt(manualCarbs,   10) || 0,
+          fat_g:          parseInt(manualFat,     10) || 0,
           food_details:   [],
         });
       }
@@ -149,6 +173,9 @@ export default function CalorieScreen() {
       }
       setManualSuccess(true);
       setManualCalories('');
+      setManualProtein('');
+      setManualCarbs('');
+      setManualFat('');
       setManualBurned('');
       await loadSummary();
       setTimeout(() => setManualSuccess(false), 2000);
@@ -171,19 +198,28 @@ export default function CalorieScreen() {
   return (
     <div className="space-y-4 pb-4">
       {/* Daily Summary */}
-      <div className="grid grid-cols-3 gap-3">
-        {summaryLoading ? (
-          [1, 2, 3].map((i) => (
+      {summaryLoading ? (
+        <div className="grid grid-cols-3 gap-3">
+          {[1, 2, 3].map((i) => (
             <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
-          ))
-        ) : (
-          <>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {/* Calorie row */}
+          <div className="grid grid-cols-3 gap-2">
             <SummaryCard label="Intake" value={summary?.total_intake ?? 0} unit="kcal" color="indigo" />
             <SummaryCard label="Burned" value={summary?.total_burned ?? 0} unit="kcal" color="emerald" />
             <SummaryCard label="Net"    value={summary?.net_calories  ?? 0} unit="kcal" color="amber" />
-          </>
-        )}
-      </div>
+          </div>
+          {/* Macro row */}
+          <div className="grid grid-cols-3 gap-2">
+            <SummaryCard label="Protein" value={summary?.total_protein_g ?? 0} unit="g" color="violet" />
+            <SummaryCard label="Carbs"   value={summary?.total_carbs_g   ?? 0} unit="g" color="sky" />
+            <SummaryCard label="Fat"     value={summary?.total_fat_g     ?? 0} unit="g" color="rose" />
+          </div>
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -288,7 +324,14 @@ export default function CalorieScreen() {
                             >
                               {selected && <CheckCircle2 className="w-3 h-3 text-white" />}
                             </div>
-                            <span className="font-medium capitalize">{food.name}</span>
+                            <div>
+                              <p className="font-medium capitalize">{food.name}</p>
+                              {(food.protein_g || food.carbs_g || food.fat_g) ? (
+                                <p className="text-xs opacity-60 mt-0.5">
+                                  P {food.protein_g ?? 0}g · C {food.carbs_g ?? 0}g · F {food.fat_g ?? 0}g
+                                </p>
+                              ) : null}
+                            </div>
                           </div>
                           <span className="text-sm font-semibold">{food.calories} kcal</span>
                         </button>
@@ -300,9 +343,16 @@ export default function CalorieScreen() {
                 {/* Total and meal type */}
                 {selectedFoods.length > 0 && (
                   <>
-                    <div className="flex items-center justify-between bg-indigo-50 rounded-xl px-4 py-3">
-                      <span className="font-semibold text-indigo-700">Selected total</span>
-                      <span className="font-bold text-indigo-700 text-lg">{selectedCalories} kcal</span>
+                    <div className="bg-indigo-50 rounded-xl px-4 py-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-indigo-700">Selected total</span>
+                        <span className="font-bold text-indigo-700 text-lg">{selectedCalories} kcal</span>
+                      </div>
+                      {(selectedProtein > 0 || selectedCarbs > 0 || selectedFat > 0) && (
+                        <p className="text-xs text-indigo-500">
+                          Protein {selectedProtein}g · Carbs {selectedCarbs}g · Fat {selectedFat}g
+                        </p>
+                      )}
                     </div>
 
                     {/* Meal type selector */}
@@ -393,6 +443,51 @@ export default function CalorieScreen() {
           </div>
         </div>
 
+        {/* Macros — only shown when logging intake */}
+        {manualCalories > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-xs font-semibold text-violet-500 uppercase tracking-wide mb-1 block">
+                Protein (g)
+              </label>
+              <input
+                type="number"
+                min="0"
+                placeholder="0"
+                value={manualProtein}
+                onChange={(e) => setManualProtein(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-sky-500 uppercase tracking-wide mb-1 block">
+                Carbs (g)
+              </label>
+              <input
+                type="number"
+                min="0"
+                placeholder="0"
+                value={manualCarbs}
+                onChange={(e) => setManualCarbs(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-rose-500 uppercase tracking-wide mb-1 block">
+                Fat (g)
+              </label>
+              <input
+                type="number"
+                min="0"
+                placeholder="0"
+                value={manualFat}
+                onChange={(e) => setManualFat(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Meal type — only relevant when intake is filled */}
         {manualCalories > 0 && (
           <div>
@@ -453,9 +548,12 @@ export default function CalorieScreen() {
 
 function SummaryCard({ label, value, unit, color }) {
   const colors = {
-    indigo: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+    indigo:  'bg-indigo-50 text-indigo-700 border-indigo-100',
     emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-    amber:  'bg-amber-50 text-amber-700 border-amber-100',
+    amber:   'bg-amber-50 text-amber-700 border-amber-100',
+    violet:  'bg-violet-50 text-violet-700 border-violet-100',
+    sky:     'bg-sky-50 text-sky-700 border-sky-100',
+    rose:    'bg-rose-50 text-rose-700 border-rose-100',
   };
   return (
     <div className={`rounded-xl border p-3 text-center ${colors[color]}`}>
