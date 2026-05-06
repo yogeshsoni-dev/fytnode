@@ -9,7 +9,7 @@ export default defineConfig({
     proxy: {
       // Node.js/Express backend
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:5001',
         changeOrigin: true,
       },
       // Django AI backend — rewrite /ai-api/... → /api/v1/...
